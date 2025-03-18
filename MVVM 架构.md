@@ -396,61 +396,6 @@ class UserRepositoryTest {
 在这个例子中，我们使用了Mockito来创建一个`ApiService`的mock对象，并定义了它在调用`getUsers()`时的行为，即返回一个预设的模拟响应。然后，使用这个mock对象实例化`UserRepository`，这样在测试中所有的网络请求都会返回我们控制下的模拟数据，而不会真正发起网络请求。
 
 这种方法使你能够在完全控制的环境中测试`UserRepository`的行为，提高了测试的稳定性和速度。
-
-## 除了使用 Mockito 等单元测试框架，如何手动实例化 mock apiService 实例
-
-如果你不想使用如 Mockito 这样的第三方库来进行单元测试，可以选择手动创建一个模拟（mock）实现。这种方式相对简单，但可能需要你手动实现所有需要模拟的方法。以下是手动创建 `ApiService` 模拟实例的一个基本示例：
-
-### 手动创建 Mock ApiService
-
-首先，定义 `ApiService` 接口（如果尚未定义）：
-
-```kotlin
-interface ApiService {
-    fun getUsers(): List<User>
-    // 其他API方法...
-}
-```
-
-接着，在测试代码中手动创建一个模拟实现类：
-
-```kotlin
-class MockApiServiceImpl : ApiService {
-    override fun getUsers(): List<User> {
-        // 返回预设的模拟用户数据
-        return listOf(User(1, "Mock User 1"), User(2, "Mock User 2"))
-        // 注意：实际应用中，你可以根据测试需求构造更复杂的模拟数据
-    }
-
-    // 如果有其他需要模拟的方法，也在这里实现
-}
-```
-
-然后，在测试中使用这个模拟实现来实例化 `UserRepository`：
-
-```kotlin
-class UserRepositoryTest {
-
-    @Test
-    fun `测试获取用户数据`() {
-        // 使用手动创建的mock实例
-        val mockApiService = MockApiServiceImpl()
-
-        // 使用mock实例创建 UserRepository
-        val userRepository = UserRepository(mockApiService)
-
-        // 执行测试逻辑，验证结果
-        val result = userRepository.getUsersFromNetwork()
-        // 验证result，例如：
-        assert(result.size == 2)
-        assert(result[0].id == 1)
-        assert(result[0].name == "Mock User 1")
-    }
-}
-```
-
-这种方式下，`MockApiServiceImpl` 类充当了 `ApiService` 的手动模拟实现，直接在其中定义了预期的返回值，从而避免了外部库的依赖。不过，相较于使用 Mockito 等专业测试库，这种手动方式可能会在处理复杂逻辑和多个测试场景时变得繁琐且难以维护。因此，具体选择哪种方式取决于项目的具体需求、团队熟悉度以及对测试可维护性的要求。
-
 ## kotlin Flow 是什么，如何使用
 
 Kotlin Flow 是一种用于处理异步数据流的编程模型，它是Kotlin协程库的一部分，设计用于在协程中实现响应式编程。Flow 特别适合处理一系列随着时间推移而产生的数据，例如从网络请求、数据库查询或传感器读取中获得的数据。与传统的回调或RxJava等其他响应式编程库相比，Flow 更加轻量级，且直接集成于Kotlin协程生态系统中，使得编写异步代码更加简洁、直观。
