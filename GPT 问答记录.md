@@ -1620,7 +1620,7 @@ android {
 
 但是，当这些图片被加载到内存中时，它们通常会被解压缩到其原始的位图格式，占用的内存大小将接近于原始图像数据的大小。这就是为什么即使一个小的JPEG文件也可能占用大量的内存。
 
-## 图片宽高和图片分辨率之前的关系是什么
+## 图片宽高和图片分辨率的关系是什么
 
 图片的宽高和分辨率是紧密相关的。分辨率通常用宽度和高度的像素数来表示，例如，800x600的图像就是宽度为800像素，高度为600像素。所以，当我们说图片的“宽高”，我们通常是指它的分辨率。
 
@@ -4885,18 +4885,12 @@ Android、AndroidX、Jetpack 和 KTX 之间的关系可以通过以下层次和�
 ### 1. **Android 平台**
    - **核心操作系统与 SDK**：提供基础的 API 和框架（如 `Activity`、`Service`），用于构建应用程序。
    - **作用**：提供系统级功能，如界面渲染、硬件交互等。
-
----
-
 ### 2. **AndroidX**
    - **定位**：Android 支持库的现代化演进，取代旧版 `android.support` 库。
    - **功能**：
      - 提供**向后兼容**支持（例如在旧系统上使用新特性）。
      - 重构包名为 `androidx.*`，优化模块化管理。
    - **与 Jetpack 的关系**：AndroidX 是 Jetpack 组件的实现基础，所有 Jetpack 组件均位于 `androidx` 命名空间下。
-
----
-
 ### 3. **Jetpack**
    - **定位**：一套由 Google 维护的**开发工具与组件集合**，旨在简化高质量应用的开发。
    - **组成**：
@@ -4906,9 +4900,6 @@ Android、AndroidX、Jetpack 和 KTX 之间的关系可以通过以下层次和�
    - **特点**：
      - 基于 AndroidX，提供标准化、可互操作的 API。
      - 例如：`androidx.lifecycle`、`androidx.room` 均属于 Jetpack 组件。
-
----
-
 ### 4. **KTX（Kotlin Extensions）**
    - **定位**：为 Android 和 Jetpack 库提供 **Kotlin 友好**的扩展。
    - **功能**：
@@ -4917,9 +4908,6 @@ Android、AndroidX、Jetpack 和 KTX 之间的关系可以通过以下层次和�
    - **与 Jetpack/AndroidX 的关系**：
      - 每个 Jetpack 组件通常有对应的 KTX 库（例如 `lifecycle-ktx`、`room-ktx`）。
      - 核心 KTX 库（如 `androidx.core:core-ktx`）为 Android SDK 提供通用扩展。
-
----
-
 ### 关系图示
 ```plaintext
 Android 平台 (SDK)
@@ -4932,9 +4920,6 @@ Android 平台 (SDK)
 │
 └── KTX 核心库（如 core-ktx，直接优化 Android SDK 的 Kotlin 体验）
 ```
-
----
-
 ### 总结
 - **Android** 是底层平台和 SDK。
 - **AndroidX** 是支持库的现代化版本，为 Jetpack 提供基础设施。
@@ -4949,15 +4934,9 @@ Android 平台 (SDK)
 ### 1. **AndroidX 的模块化特性**
    - **组成**：AndroidX 是一个**集合**，包含大量独立的库（例如 `androidx.core`、`androidx.lifecycle`、`androidx.room` 等），每个库都独立开发、维护和发布。
    - **版本独立**：每个库的版本号独立管理（例如 `lifecycle:2.6.1` 和 `room:2.5.2`），无需强制同步其他库的版本。
-
----
-
 ### 2. **为何需要版本协调？**
    - **依赖兼容性**：某些 Jetpack 组件之间存在依赖关系（例如 `Navigation` 依赖 `Fragment`），需要确保版本兼容。
    - **简化管理**：手动为每个库指定版本可能导致版本冲突或配置繁琐。
-
----
-
 ### 3. **Google 的解决方案：BOM（Bill of Materials）**
    - **BOM 的作用**：通过声明一个 BOM 版本（如 `androidx.compose:compose-bom:2023.08.00`），自动对齐相关库的版本，无需手动指定每个库的版本号。
    - **示例配置**：
@@ -4971,15 +4950,9 @@ Android 平台 (SDK)
      }
      ```
    - **灵活性**：你仍可以手动覆盖某个库的版本（如 `implementation 'androidx.compose.material3:material3:1.2.0'`）。
-
----
-
 ### 4. **历史背景：曾经的 "AndroidX 版本"**
    - 在早期，Google 曾尝试为整个 AndroidX 集合定义一个统一版本（如 `1.0.0`），但后来废弃了这种设计，改为**完全模块化**的版本管理。
    - 现在，**"AndroidX 版本" 不再是一个有意义的全局概念**，开发者只需关注具体组件的版本。
-
----
-
 ### 5. **实际开发中的版本管理**
    - **独立版本**：大多数情况下，你会在 `build.gradle` 中为每个库单独指定版本：
      ```gradle
@@ -4987,9 +4960,6 @@ Android 平台 (SDK)
      implementation 'androidx.room:room-runtime:2.5.2'
      ```
    - **BOM 推荐**：对于紧密相关的库（如 Jetpack Compose），使用 BOM 是最佳实践。
-
----
-
 ### 总结
 - **AndroidX 不是单一库**，而是由众多独立库组成的集合。
 - **每个 Jetpack 组件有独立版本**（如 `lifecycle:2.6.1`、`room:2.5.2`）。
@@ -5005,9 +4975,6 @@ Android 平台 (SDK)
   - **Jetpack 组件**：主流 Jetpack 库（如 `Lifecycle`、`Room`、`Navigation`、`WorkManager`）通常都有对应的 KTX 库（如 `lifecycle-ktx`、`room-ktx`）。
   - **Android SDK 扩展**：核心 Android API 也有对应的 KTX 扩展（如 `core-ktx` 提供 `Context`、`SharedPreferences` 等常用类的 Kotlin 友好扩展）。
   - **例外情况**：某些小众或新推出的库可能暂时没有 KTX 版本，或 KTX 功能被直接集成到主库中（例如部分库已原生支持 Kotlin 协程）。
-
----
-
 ### **2. 原始库与 KTX 库的版本号是否一致？**
 **答案：通常一致，但存在少数例外。**
 
@@ -5025,9 +4992,6 @@ Android 平台 (SDK)
 - **早期版本**：某些 KTX 库在初始发布时可能与原始库版本号不完全同步（例如早期 `room-ktx` 版本可能滞后于 `room-runtime`）。
 - **功能依赖**：如果 KTX 库依赖其他库的新特性（如协程版本更新），可能短暂出现版本号不一致。
 - **独立维护**：极少数 KTX 库（如 `fragment-ktx`）可能因历史原因与原始库版本号略有差异，但这种情况较少见。
-
----
-
 ### **3. 开发者应如何选择版本？**
 #### **最佳实践**
 1. **保持版本一致**：始终优先使用与原始库版本号相同的 KTX 库，以确保兼容性。
@@ -5050,9 +5014,6 @@ Android 平台 (SDK)
 #### **常见误区**
 - **强制要求所有库都有 KTX**：并非所有库都需要 KTX，例如纯工具类库（如 `androidx.annotation`）可能无需额外扩展。
 - **忽略版本号差异**：即使版本号不一致也能编译通过，但可能导致运行时错误（如 API 不兼容）。
-
----
-
 ### **总结**
 | 特性           | 说明                                 |
 | ------------ | ---------------------------------- |
@@ -5066,9 +5027,6 @@ Android 平台 (SDK)
 - **依赖关系**：KTX 库通常依赖对应的原始库。例如：
   - 使用 `androidx.lifecycle:lifecycle-viewmodel-ktx` 需要同时依赖 `androidx.lifecycle:lifecycle-viewmodel`。
   - 在 Gradle 中，若直接声明 KTX 库，原始库会自动通过传递依赖引入（无需手动添加）。
-
----
-
 ### **2. 原始 API 的兼容性**
 - **完全兼容**：原始库的所有 Java 风格 API 在引入 KTX 后仍可正常使用。
 - **无需强制迁移**：开发者可以**自由选择**使用原始 API 或 KTX 扩展语法，甚至在同一项目中混合使用两者。
@@ -5090,18 +5048,12 @@ Android 平台 (SDK)
   }
   ```
   - 通过扩展函数 `edit()` 简化了 `commit()`/`apply()` 的调用，底层仍调用原始 API。
-
----
-
 ### **3. 为何推荐使用 KTX 语法？**
 - **代码简洁性**：KTX 通过 Kotlin 特性（如 Lambda、协程、空安全）减少模板代码。
 - **功能增强**：部分 KTX 库提供原始库不具备的 Kotlin 专属功能：
   - **协程支持**：如 `lifecycleScope`（自动管理协程生命周期）。
   - **属性委托**：如 `Preference DataStore` 通过 `by preferencesDataStore()` 简化数据读取。
   - **操作符重载**：如 `LiveData` 的 `observeAsState()` 在 Jetpack Compose 中无缝集成。
-
----
-
 ### **4. 实际开发中的混合使用场景**
 #### **场景 1：逐步迁移**
 - 旧代码保留原始 API，新代码使用 KTX 语法：
@@ -5131,9 +5083,6 @@ Android 平台 (SDK)
   editor.putInt("key2", 100)
   editor.apply()
   ```
-
----
-
 ### **5. 注意事项**
 - **依赖冲突**：确保 KTX 库与原始库的版本一致（如 `lifecycle-viewmodel-ktx:2.6.1` 对应 `lifecycle-viewmodel:2.6.1`）。
 - **API 覆盖范围**：并非所有原始 API 都有对应的 KTX 扩展，某些场景仍需直接调用原始方法。
@@ -5141,9 +5090,6 @@ Android 平台 (SDK)
   ```gradle
   implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1"
   ```
-
----
-
 ### **总结**
 | **关键点**               | **说明**                                                                 |
 |-------------------------|--------------------------------------------------------------------------|
@@ -5157,8 +5103,6 @@ Android 平台 (SDK)
 ## Android APT、Gradle Plugin、ASM 是什么关系，感觉很混淆，作用分别是什么
 
 在 Android 开发中，**APT（Annotation Processing Tool）**、**Gradle Plugin** 和 **ASM** 是三个不同层面的工具，分别作用于开发流程的不同阶段，但它们可以协同工作以实现复杂的构建和代码处理需求。以下是它们的核心作用与关系：
-
----
 
 ### **1. APT（注解处理器）**
 #### **作用**：
@@ -5176,9 +5120,6 @@ Android 平台 (SDK)
   // APT 根据注解生成实现类
   public class MyServiceImpl implements MyService {}
   ```
-
----
-
 ### **2. Gradle Plugin（构建插件）**
 #### **作用**：
 - **构建流程控制**：扩展 Gradle 的构建流程，自定义编译、打包、资源处理等任务。
@@ -5195,9 +5136,6 @@ Android 平台 (SDK)
       }
   }
   ```
-
----
-
 ### **3. ASM（字节码操作框架）**
 #### **作用**：
 - **字节码修改**：在**编译后**直接操作 `.class` 文件的字节码，实现动态修改或增强代码逻辑。
@@ -5213,8 +5151,6 @@ Android 平台 (SDK)
       mv.visitMethodInsn(INVOKESTATIC, "Log", "d", "(String)V", false);
   }
   ```
-
----
 
 ### **三者的关系与协作**
 #### **1. 层级关系**：
@@ -5235,9 +5171,6 @@ Android 平台 (SDK)
   通过 Gradle 插件的 `Transform API` 调用 ASM，在构建过程中修改字节码。
 - **APT + ASM**：  
   先通过 APT 生成代码，再用 ASM 修改生成的字节码（较少见，但技术可行）。
-
----
-
 ### **对比表格**
 | **工具**          | **作用对象**       | **阶段**       | **典型场景**                     |
 |-------------------|--------------------|----------------|----------------------------------|
@@ -5245,14 +5178,10 @@ Android 平台 (SDK)
 | **Gradle Plugin** | 构建流程           | 全构建周期     | 资源压缩、依赖管理、任务自动化   |
 | **ASM**           | 字节码（.class）   | 编译后         | AOP、代码插桩、热修复            |
 
----
-
 ### **实战示例：实现一个埋点框架**
 1. **APT**：定义 `@TrackEvent` 注解，生成事件类代码。
 2. **Gradle Plugin**：注册 Transform 任务，调用 ASM。
 3. **ASM**：在 `onClick` 方法中插入埋点统计代码。
-
----
 
 ### **总结**
 - **APT** 用于生成代码，减少手写冗余代码。
