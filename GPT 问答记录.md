@@ -5254,4 +5254,133 @@ Android 平台 (SDK)
 - **行间距**（Leading）是行高与字体大小的差值，被平均分配到字符上下。
 
 ---
+## 不同 ABI so 的兼容性是什么，与对应设备的 CPU 架构关系是什么
+## ABI 与 CPU 架构兼容性关系
 
+### **主流 ABI 架构**
+
+| ABI | CPU 架构 | 位数 | 兼容性说明 |
+|-----|----------|------|------------|
+| `arm64-v8a` | ARM v8-A | 64位 | **现代主流**，性能最佳 |
+| `armeabi-v7a` | ARM v7 | 32位 | **广泛兼容**，性能良好 |
+| `armeabi` | ARM v5/v6 | 32位 | **已过时**，不推荐使用 |
+| `x86_64` | Intel x86-64 | 64位 | 平板/模拟器 |
+| `x86` | Intel x86 | 32位 | 平板/模拟器 |
+
+### **兼容性规则**
+
+#### **1. 向下兼容规则**
+```
+arm64-v8a 设备 → 可运行 armeabi-v7a 和 armeabi
+armeabi-v7a 设备 → 可运行 armeabi
+armeabi 设备 → 仅运行 armeabi
+```
+
+#### **2. 实际兼容性示例**
+```groovy
+// 设备 CPU 架构 → 可运行的 ABI
+// arm64-v8a → arm64-v8a, armeabi-v7a, armeabi
+// armeabi-v7a → armeabi-v7a, armeabi  
+// armeabi → armeabi (无法运行更高版本)
+```
+
+### **现代设备兼容性现状**
+
+#### **当前市场分布**
+- **~95%** 设备支持 `arm64-v8a` 或 `armeabi-v7a`
+- **<5%** 仅支持 `armeabi`（老旧设备）
+- **x86** 主要用于模拟器和少数 Intel 平板
+
+### **推荐配置策略**
+
+#### **方案1：仅 arm64（最优性能）**
+```gradle
+ndk {
+    abiFilters "arm64-v8a"
+}
+// 或
+splits.abi {
+    include 'arm64-v8a'
+}
+```
+**效果**：最小 APK，最佳性能，覆盖 ~95% 现代设备
+
+#### **方案2：双架构平衡**
+```gradle
+splits.abi {
+    include 'arm64-v8a', 'armeabi-v7a'
+}
+```
+**效果**：更好的兼容性，覆盖 ~99% 设备
+
+#### **方案3：全架构兼容**
+```gradle
+splits.abi {
+    include 'arm64-v8a', 'armeabi-v7a', 'x86', 'x86_64'
+}
+```
+**效果**：最大兼容性，但 APK 体积最大
+
+### **重要注意事项**
+
+#### **1. armeabi 已废弃**
+```gradle
+// ❌ 不推荐
+include 'armeabi'
+
+// ✅ 推荐
+include 'armeabi-v7a'  // 替代 armeabi
+```
+
+#### **2. 64位设备优先原则**
+- 64位设备会优先加载 `arm64-v8a` 目录的 so 文件
+- 如果不存在，则回退到 `armeabi-v7a`
+
+#### **3. 性能影响**
+```java
+// arm64-v8a 优势：
+// - 更多寄存器
+// - 改进的指令集
+// - 更好的浮点性能
+// - 内存访问优化
+```
+
+#### **4. Google Play 要求**
+- 2019年8月起：必须提供 64位版本
+- 必须同时包含 `arm64-v8a` 和 32位架构
+
+### **实际构建建议**
+
+```gradle
+android {
+    defaultConfig {
+        ndk {
+            // 现代应用推荐配置
+            abiFilters "arm64-v8a", "armeabi-v7a"
+        }
+    }
+    
+    splits {
+        abi {
+            enable true
+            reset()
+            include "arm64-v8a", "armeabi-v7a"
+            universalApk false
+        }
+    }
+}
+```
+
+这样配置既满足 Google Play 要求，又保证了最佳的性能和兼容性平衡。
+
+## SSH Key 生成方式
+
+**open ssh 版本 大于等于 8.8，不支持 RSA 算法，请更新为 ED25519
+
+终端执行命令 `ssh -V `查看版本
+
+| 算法类型                          | 公钥             | 私钥         | 命令                    |
+| ----------------------------- | -------------- | ---------- | --------------------- |
+| ED25519                       | id_ed25519.pub | id_ed25519 | ssh-keygen -t ed25519 |
+| RSA<br><br>(Open ssh 版本小于8.8） | id_rsa.pub     | id_rsa     | ssh-keygen -t rsa     |
+| ECDSA                         | id_ecdsa.pub   | id_ecdsa   | ssh-keygen -t ecdsa   |
