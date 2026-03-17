@@ -1,66 +1,5 @@
 
 [TOC]
-## Google 的 ExoPlayer 播放器支持那些视频格式
-
-ExoPlayer是Google开发的一个开源、应用层的媒体播放器，它在Android设备上提供了更多的灵活性和功能。以下是ExoPlayer支持的一些主要视频格式：
-
-1.  MP4 (H.264 Baseline/Main/High, AAC)
-2.  FMP4 (H.264 Baseline/Main/High, AAC, MP3)
-3.  WebM (VP8, VP9, Opus, Vorbis)
-4.  Matroska (MKV, H.264 Main/High, AAC, AC3, E-AC3)
-5.  MPEG-TS (H.264 Main/High, AAC, AC3, E-AC3)
-6.  MPEG-PS (H.264 Main/High, AAC)
-7.  Ogg (Theora, Vorbis)
-8.  MP3
-9.  AAC
-10. FLAC
-11. WAV
-
-请注意，这些格式的支持可能会根据您的Android设备和Android版本的不同而有所不同。例如，VP9和Opus的支持可能在一些较旧的设备或Android版本上不可用。
-
-## ExoPlayer 支持 FLV 格式吗
-
-不，ExoPlayer并不直接支持FLV（Flash Video）格式。FLV是一种主要用于互联网流媒体内容的格式，但现在已经逐渐被HTML5和更现代的流媒体格式（如MPEG-DASH和HLS）所取代。
-
-如果你需要在Android设备上播放FLV文件，你可能需要查找支持FLV的第三方媒体播放器，或者将FLV文件转换为ExoPlayer支持的格式，如MP4或WebM。
-
-## URL Scheme
-
-URL Scheme是一种特殊的URL，它用于启动一个应用程序或调用一个应用程序的特定功能。这在移动应用开发中尤其常见，例如在iOS和Android平台上。
-
-一个URL Scheme的例子可能是`twitter://`，这可能会打开Twitter应用程序。URL Scheme还可以用于深度链接，这样可以直接导航到应用程序的特定部分。例如，一个链接如`twitter://user?screen_name=jack`可能会打开Twitter应用程序并导航到用户“jack”的个人页面。
-
-URL Scheme通常在应用程序的清单文件中定义，这样系统就知道哪个应用程序可以响应哪个URL Scheme。例如，在Android中，您可能会在`AndroidManifest.xml`文件中定义一个intent-filter来声明您的应用程序可以处理某个URL Scheme。
-
-这是一个简单的示例：
-
-```xml
-<activity android:name="com.example.android.MainActivity" >
-    <intent-filter>
-        <action android:name="android.intent.action.VIEW" />
-
-        <category android:name="android.intent.category.DEFAULT" />
-        <category android:name="android.intent.category.BROWSABLE" />
-
-        <data android:scheme="example"
-              android:host="www.example.com" />
-    </intent-filter>
-</activity>
-```
-
-在这个例子中，任何以“example://[www.example.com”开头的URL都会启动MainActivity。](http://www.example.com”开头的URL都会启动MainActivity。)
-
-## URL Scheme 中如何拼接多个 Query 参数
-
-在URL Scheme中拼接多个Query参数时，你可以使用`&`符号来连接多个参数。每个参数都由一个键值对构成，键和值之间用`=`连接。
-
-这是一个基本的示例：
-
-    myapp://page?param1=value1&param2=value2&param3=value3
-
-在这个例子中，`myapp://page`是你的URL Scheme，`param1=value1`，`param2=value2`和`param3=value3`是你的Query参数。
-
-请注意，如果你的参数值包含一些特殊字符或空格，你可能需要使用URL编码来确保它们在URL中正确传递。例如，如果`value1`实际上是`Hello World`，你需要像这样编码它：`param1=Hello%20World`。
 
 ## android 代码如何设置 TextView 多个 Gravity
 
@@ -250,39 +189,6 @@ fun updateHasMoreData(hasMoreData: Boolean) {
 
 这两个库都有详细的文档和示例代码，可以帮助你快速地在你的应用中实现下拉刷新和上拉加载更多的功能。
 
-## kotlin 抽象类
-
-在 Kotlin 中，抽象类是一种不能被实例化的类，它经常被用作基类。抽象类可以包含抽象方法（没有具体实现的方法）和抽象属性（没有初始值的属性），这些抽象方法和属性必须在抽象类的子类中被重写和初始化。
-
-这是一个简单的示例：
-
-```kotlin
-abstract class AbstractClass {
-    abstract fun abstractFunction()
-
-    abstract val abstractProperty: String
-}
-
-class ConcreteClass : AbstractClass() {
-    override fun abstractFunction() {
-        println("Abstract function implementation.")
-    }
-
-    override val abstractProperty: String
-        get() = "Abstract property value"
-}
-```
-
-在这个例子中，`AbstractClass`是一个抽象类，它有一个抽象方法`abstractFunction`和一个抽象属性`abstractProperty`。`ConcreteClass`是`AbstractClass`的子类，它重写了`abstractFunction`方法和`abstractProperty`属性。
-
-要创建抽象类的实例，必须先创建一个继承自抽象类的具体类，然后使用该具体类创建实例。如在上述例子中，可以这样创建`ConcreteClass`的实例：
-
-```kotlin
-val instance = ConcreteClass()
-instance.abstractFunction()  // 输出 "Abstract function implementation."
-println(instance.abstractProperty)  // 输出 "Abstract property value"
-```
-
 ## setHasStableIds 作用
 
 在Android开发中，当你使用RecyclerView或者ListView等列表视图时，`setHasStableIds()`方法是一个非常重要的方法。这个方法的主要作用是让RecyclerView的Adapter知道其数据集中的每个项目都有唯一的标识符，可以帮助RecyclerView在数据变更时进行更有效率的刷新。
@@ -323,15 +229,14 @@ int lastVisiblePosition = layoutManager.findLastVisibleItemPosition();
 
 // 获取对应位置的数据
 List<String> visibleUserIds = new ArrayList<>();
+
 for (int i = firstVisiblePosition; i <= lastVisiblePosition; i++) {
-    Student student = yourAdapter.getItem(i); // 你需要在你的adapter中实现一个获取指定位置数据的方法
+    Student student = yourAdapter.getItem(i); 
     visibleUserIds.add(student.getUserId());
 }
 ```
 
-需要注意的是，这个方法只有在你的LayoutManager实际上是一个LinearLayoutManager的时候才能工作。如果你的LayoutManager是其他类型的（如GridLayoutManager或者StaggeredGridLayoutManager），你需要使用对应的方法来获取第一个和最后一个可见的item的位置。
-
-此外，这个方法假设你的adapter的数据集是一个包含所有学生的列表，且你的adapter有一个方法可以获取到指定位置的学生。如果你的实现有所不同，你可能需要修改这个方法以适应你的需求。
+需要注意的是，这个方法只有在你的 LayoutManager 实际上是一个LinearLayoutManager的时候才能工作。如果你的 LayoutManager 是其他类型的（如 GridLayoutManager 或者StaggeredGridLayoutManager），你需要使用对应的方法来获取第一个和最后一个可见的item的位置。
 
 ## http  get 请求传递 ArrayList 参数怎么传
 
@@ -359,25 +264,23 @@ String listString = request.getParameter("list");
 ArrayList<String> list = new ArrayList<>(Arrays.asList(listString.split(",")));
 ```
 
-但是，需要注意的是，这种方法只适用于简单的ArrayList，如果你的ArrayList包含复杂的对象，你可能需要使用一种更复杂的序列化方法，例如JSON。
+但是，需要注意的是，这种方法只适用于简单的 ArrayList，如果你的 ArrayList 包含复杂的对象，你可能需要使用一种更复杂的序列化方法，例如 JSON。
 
 ## get 请求默认的 Content-Type 是什么
 
 在 HTTP 协议中，`GET` 请求通常不包含请求体，因此没有必要设置 `Content-Type` 头部。`Content-Type` 头部用于指明请求或响应体的数据格式，而 `GET` 请求主要用于从服务器获取资源，通常不需要传递请求体数据。
 
-### 默认行为
+默认行为
 
 - **GET 请求没有请求体**：由于 `GET` 请求不包含请求体，因此在规范中没有为其定义默认的 `Content-Type`。如果服务器需要根据 `GET` 请求返回数据，响应会包含 `Content-Type`，指明响应体的数据格式，例如 `text/html`、`application/json` 等。
 
 - **响应中的 Content-Type**：虽然 `GET` 请求本身不需要 `Content-Type`，但服务器返回的响应会包含 `Content-Type`，用于指示响应数据的格式。例如，返回 JSON 数据时，响应头中会包含 `Content-Type: application/json`。
 
-### 使用场景
+ 使用场景
 
 - **请求头中的其他头部**：虽然 `GET` 请求不需要 `Content-Type`，但在某些情况下，你可能会在请求头中设置其他头部信息，如 `Accept`，用于指明客户端可以处理的内容类型。例如，`Accept: application/json` 表示客户端希望接收 JSON 格式的数据。
 
 - **自定义需求**：在某些特定的应用场景中，即使是 `GET` 请求，开发者可能会根据业务需求在请求头中添加自定义的头部信息，但这通常与 `Content-Type` 无关。
-
-### 总结
 
 `GET` 请求不需要设置 `Content-Type`，因为它们没有请求体。相反，服务器在响应中会设置 `Content-Type` 头部，以指明返回数据的格式。对于客户端请求，更多的是使用 `Accept` 头部来指示期望的响应数据格式。
 
@@ -385,9 +288,9 @@ ArrayList<String> list = new ArrayList<>(Arrays.asList(listString.split(",")));
 
 在 HTTP 请求中，`POST` 请求的 `Content-Type` 头部字段用来指明请求体的数据格式。常见的两种 `Content-Type` 类型是 `application/x-www-form-urlencoded`（通常简称为 Form 类型）和 `application/json`（JSON 类型）。这两者之间的区别主要在于数据的格式和编码方式：
 
-### 1. `application/x-www-form-urlencoded` (Form 类型)
+1.`application/x-www-form-urlencoded` (Form 类型)
 
-#### 特点
+特点
 
 - **数据格式**：数据以键值对的形式组织，类似于 URL 查询字符串。键值对之间用 `&` 分隔，键和值之间用 `=` 分隔。
   
@@ -395,7 +298,7 @@ ArrayList<String> list = new ArrayList<>(Arrays.asList(listString.split(",")));
 
 - **常用场景**：这种类型常用于 HTML 表单提交，特别是在没有上传文件的情况下。
 
-#### 示例
+示例
 
 假设我们有以下数据：
 
@@ -410,9 +313,9 @@ age=30
 name=John+Doe&age=30
 ```
 
-### 2. `application/json` (JSON 类型)
+2.`application/json` (JSON 类型)
 
-#### 特点
+ 特点
 
 - **数据格式**：数据以 JSON 格式组织，JSON 是一种轻量级的数据交换格式，易于人类阅读和编写，同时易于机器解析和生成。
 
@@ -420,7 +323,7 @@ name=John+Doe&age=30
 
 - **常用场景**：这种类型常用于 RESTful API 请求，因为 JSON 格式更灵活、更适合复杂的嵌套数据结构。
 
-#### 示例
+示例
 
 假设我们有以下数据：
 
@@ -440,25 +343,13 @@ name=John+Doe&age=30
 }
 ```
 
-### 总结
+总结
 
-选择使用哪种 `Content-Type` 取决于你的应用场景和数据复杂性。对于简单的表单提交，`application/x-www-form-urlencoded` 是一个不错的选择。对于需要传递复杂结构化数据的场合，`application/json` 更为合适。根据具体需求选择合适的 `Content-Type` 可以提高数据传输的效率和可靠性。
-
-## kotlin List 用逗号分割为字符串
-
-在 Kotlin 中，你可以使用 `joinToString` 方法将 List 用逗号分割为字符串。下面是一个例子：
-
-```kotlin
-val list = listOf("Apple", "Banana", "Cherry")
-val result = list.joinToString(", ")
-println(result)  // 输出：Apple, Banana, Cherry
-```
-
-在这个例子中，`joinToString` 方法将列表中的每个元素转换为字符串，并使用指定的分隔符（在这里是逗号和空格）将它们连接在一起。
+选择使用哪种 `Content-Type` 取决于你的应用场景和数据复杂性，对于简单的表单提交，`application/x-www-form-urlencoded` 是一个不错的选择，对于需要传递复杂结构化数据的场合，`application/json` 更为合适。根据具体需求选择合适的 `Content-Type` 可以提高数据传输的效率和可靠性。
 
 ## layoutParams as MarginLayoutParams 错误
 
-这个错误可能是因为你试图将一个不是`MarginLayoutParams`类型的对象转换为`MarginLayoutParams`。在Android中，`LayoutParams`有很多子类，包括`MarginLayoutParams`，`RelativeLayout.LayoutParams`，`LinearLayout.LayoutParams`等等。不同的视图可能会有不同类型的LayoutParams。
+这个错误可能是因为你试图将一个不是 `MarginLayoutParams` 类型的对象转换为`MarginLayoutParams`。在Android中，`LayoutParams`有很多子类，包括`MarginLayoutParams`，`RelativeLayout.LayoutParams`，`LinearLayout.LayoutParams`等等，不同的视图可能会有不同类型的 LayoutParams。
 
 在你的情况下，你可能需要先检查你的`LayoutParams`是否是`MarginLayoutParams`类型的。你可以使用`is`关键字来检查：
 
@@ -471,50 +362,16 @@ if (layoutParams is MarginLayoutParams) {
 }
 ```
 
-如果你确定你的`LayoutParams`应该是`MarginLayoutParams`类型的，但是你仍然得到这个错误，那么可能是在你的代码的其他部分有一些问题。你可能需要检查你的视图是否正确地初始化了，或者是否在正确的上下文中使用了它。
-
 ## FrameLayout.LayoutParams 为什么不能转换为 MarginLayoutParams
 
 `FrameLayout.LayoutParams`和`MarginLayoutParams`都是`ViewGroup.LayoutParams`的子类。但是，他们之间并不具有直接的继承关系。这就意味着你不能直接将`FrameLayout.LayoutParams`强制转换为`MarginLayoutParams`。
 
-然而，`FrameLayout.LayoutParams`实际上是继承自`ViewGroup.MarginLayoutParams`的，这就意味着你可以将`FrameLayout.LayoutParams`转换为`MarginLayoutParams`。下面是一个示例：
+然而，`FrameLayout.LayoutParams`实际上是继承自`ViewGroup.MarginLayoutParams`的，这就意味着你可以将`FrameLayout.LayoutParams`转换为`ViewGroup.MarginLayoutParams`。下面是一个示例：
 
 ```kotlin
 val frameParams = FrameLayout.LayoutParams(100, 100)
 val marginParams = frameParams as ViewGroup.MarginLayoutParams
 ```
-
-在这个例子中，`frameParams`是一个`FrameLayout.LayoutParams`对象，我们可以将它转换为`ViewGroup.MarginLayoutParams`类型的`marginParams`。
-
-这样做的前提是，你的`LayoutParams`实例实际上是`MarginLayoutParams`的实例。如果它实际上是一个不同的`LayoutParams`子类的实例，那么这个转换将会失败，并抛出一个`ClassCastException`。
-
-## Kotlin Fill Class 如何使用
-
-"Kotlin Fill Class" 是一个非常有用的 Android Studio 插件，它可以帮助你快速填充 Kotlin 类的构造函数参数。
-
-以下是如何安装和使用 "Kotlin Fill Class" 插件的步骤：
-
-1.  安装插件：
-    *   在 Android Studio 中，点击顶部菜单的 "File" -> "Settings"。
-    *   在左侧菜单中，选择 "Plugins"。
-    *   在 "Marketplace" 标签页中搜索 "Kotlin Fill Class"，然后点击 "Install"。
-    *   安装完毕后，重启 Android Studio。
-
-2.  使用插件：
-    *   创建一个带有多个参数的 Kotlin 类。例如：
-        ```kotlin
-        data class User(val name: String, val age: Int, val email: String)
-        ```
-    *   然后尝试创建这个类的一个实例，但是不要填写任何参数。例如：
-        ```kotlin
-        val user = User()
-        ```
-    *   此时，将光标放在 "User()" 上，按下 "Alt + Enter"（Mac 用户按 "Option + Enter"）。在弹出的菜单中，选择 "Fill Class"。插件会自动为你填充所有的参数，结果如下：
-        ```kotlin
-        val user = User(name = "", age = 0, email = "")
-        ```
-
-这样，你就可以快速填充类的构造函数参数了。这个插件特别适合用于处理参数较多的类，可以大大提高编程效率。
 
 ## kotlin 如何序列化数据对象
 
@@ -661,120 +518,6 @@ import kotlinx.parcelize.Parcelize
 
 这就是在 Kotlin 中创建支持 `Parcelable` 的 data class 的方法。
 
-## enable map type when json filed key is primitive type 是什么意思
-
-"enable map type when json field key is primitive type" 这句话的意思是当JSON字段的键是原始类型时，启用映射类型。
-
-在JSON中，数据是以键值对的形式存储的，键通常是字符串类型。然而，在某些场景下，我们可能需要使用原始类型（如整数，布尔值等）作为键。这就需要我们在处理JSON数据时启用映射类型（Map类型）。
-
-例如，在Java中，我们通常使用Map\<String, Object>来表示一个JSON对象。但是，如果我们想要使用原始类型作为键，我们可能需要使用Map\<Object, Object>或者具体的原始类型，比如Map\<Integer, Object>。
-
-这通常在某些特定的序列化/反序列化库中作为一个选项提供，使得用户可以根据需要选择是否启用。
-
-## let properties name to be camel case 什么意思
-
-"Let properties name to be camel case" 是指让属性（或变量）的命名遵循驼峰命名法（camel case）。驼峰命名法是一种编程中的命名约定，主要用于使代码更易读。
-
-驼峰命名法有两种形式：
-
-1.  小驼峰（lower camel case）：第一个单词的首字母小写，后续每个单词的首字母大写。例如：firstName, lastName。
-
-2.  大驼峰（Upper Camel Case）或帕斯卡命名法（Pascal Case）：每个单词的首字母都大写。例如：FirstName, LastName。
-
-所以，"Let properties name to be camel case" 就是让属性名遵循这种命名规则，使得代码更加清晰易读。
-
-## force init default value with origin json value 什么意思
-
-"force init default value with origin json value" 这句话可能是在讨论如何在初始化一个对象时，强制使用原始JSON值作为默认值。
-
-在处理JSON数据时，我们经常会将其解析为特定的数据对象。这句话可能是在描述一个情况，即在创建这些对象时，我们需要强制使用JSON中的原始值作为对象的默认值。
-
-例如，假设我们有一个名为User的类，它有一个名为name的属性。在JSON数据中，我们有一个键也叫"name"，它的值是"John"。在这种情况下，"force init default value with origin json value"可能意味着在创建User对象时，我们需要将"name"属性的默认值设置为JSON中"name"键的值，即"John"。
-
-这通常在处理JSON解析库时会出现，比如在Java中的Gson或者在Swift中的Codable。这些库允许你定义如何从JSON解析数据，并可以让你指定如果JSON中没有特定键的话，应该使用什么默认值。
-
-## let classes to be internal 什么意思
-
-"let classes to be internal" 是在讨论编程中的访问修饰符。在许多编程语言中，如Kotlin、C#等，"internal" 是一个访问修饰符，用于控制类、函数或属性的可见性。
-
-当一个类被声明为 "internal" 时，这意味着这个类只在其定义的模块（module）内部可见。换句话说，只有在同一模块中的其他代码可以访问和使用这个类。这是一种封装的方式，可以保护类不被其他模块的代码访问，从而避免了可能的错误或混乱。
-
-所以，"let classes to be internal" 的意思是让类成为内部类，即只在其定义的模块内部可见。
-
-## add Gson @Expose Annotation 什么意思
-
-在使用Gson库进行JSON序列化和反序列化时，`@Expose`是一个可选的注解，可以控制哪些字段应该被考虑在内。
-
-当你在一个字段上添加`@Expose`注解，这意味着这个字段将被暴露，即在JSON序列化或反序列化时将被包含。如果你没有在字段上添加`@Expose`注解，那么这个字段将不会被包含。
-
-例如，考虑下面的类：
-
-```java
-public class User {
-    @Expose 
-    private String name;
-    private int age;
-}
-```
-
-在这个例子中，`name`字段有一个`@Expose`注解，而`age`字段没有。因此，如果你将一个User对象序列化为JSON，只有`name`字段会被包含在生成的JSON中。
-
-注意，要让`@Expose`注解生效，你需要在创建Gson对象时调用`.excludeFieldsWithoutExposeAnnotation()`方法。例如：
-
-```java
-Gson gson = new GsonBuilder().excludeFieldsWithoutExposeAnnotation().create();
-```
-
-这将配置Gson只序列化和反序列化那些有`@Expose`注解的字段。
-
-## init with non-null default value 什么意思
-
-"init with non-null default value" 是编程中的一种概念，它的含义是在初始化一个变量时，为其赋予一个非空（non-null）的默认值。
-
-在很多编程语言中，如Java, Kotlin, C#等，变量在声明时可以不进行初始化，即不赋予任何值。这时，这些变量的值通常会是一个默认值，如数值型的默认值通常是0，布尔型的默认值是false，对象的默认值是null等。
-
-然而，有些情况下，我们可能希望在声明变量的同时就给它赋予一个非空的默认值。这主要是为了避免在后续的代码中出现null值引发的错误。这种做法就是"init with non-null default value"。
-
-例如，在Kotlin中，我们可以这样做：
-
-```kotlin
-var name: String = "default name"
-```
-
-在这段代码中，我们在声明变量`name`的同时，就给它赋予了一个非空的默认值"default name"。这样，即使后续的代码中没有再对`name`进行赋值，它的值也永远不会是null，从而避免了可能的null值错误。
-
-## only create annotations when neeeded 什么意思
-
-"only create annotations when needed" 这句话的意思是，只有在需要的时候才创建注解。在编程中，注解是一种元数据，可以提供代码的额外信息，但并不直接影响代码的执行。
-
-虽然注解可以为代码提供有用的信息，如元数据、配置、处理指示等，但并不是所有情况下都需要注解。过度使用注解可能会使代码变得复杂和难以理解。因此，最佳实践是只在需要的时候创建和使用注解。
-
-例如，在Java中，如果你正在使用一个库或框架，如Spring或Hibernate，你可能需要使用注解来提供额外的配置信息或者指示框架如何处理你的类和方法。但如果你的代码并不需要这些额外的信息，那么就没有必要创建和使用注解。
-
-## Android Stuido 使用 kotlin 开发 Android 推荐一些提高效率的插件
-
-1.  **Kotlin Fill Class**: 这个插件可以帮助你快速填充一个类的构造函数。只需要输入类的名称，插件就会自动为你填充构造函数的所有参数。
-
-2.  **Kotlin Parcelable Generator**: 这是一个可以自动生成Parcelable实现的插件，对于Android开发者来说非常有用，因为Parcelable接口通常用于Android组件之间的数据传递。
-
-3.  **Advanced Java/Kotlin Folding**: 这个插件可以提高代码的可读性，它会自动折叠一些冗余的Java或Kotlin代码，例如getters，setters，generics等。
-
-4.  **Kotlin/Native Scratch**: 这个插件可以让你在Android Studio中运行Kotlin/Native的代码片段，对于测试和调试非常有用。
-
-5.  **Kotlin Safe Delete**: 这个插件可以在删除一个类或函数时，检查是否有其他地方引用了它，如果有，会给出警告。
-
-6.  **Kotlin Data Class File Template**: 这个插件提供了一个快速创建Kotlin数据类的模板。
-
-7.  **Key Promoter X**: 这个插件可以帮助你更好地熟悉和使用Android Studio的快捷键，提高开发效率。
-
-8.  **ADB Idea**: 这个插件可以让你在Android Studio中直接通过ADB执行一些常见的操作，例如安装、卸载应用，清除数据等。
-
-9.  **LeakCanary**: 这是一个内存泄漏检测工具，它可以帮助你找到并修复你的应用中的内存泄漏问题。
-
-10. **Android Material Design Icon Generator**: 这个插件可以帮助你快速生成符合Material Design规范的图标。
-
-以上就是一些可以提高你在使用Android Studio进行Kotlin开发时效率的插件，希望对你有所帮助。
-
 ## Fragment.activityViewModels 作用
 
 `Fragment.activityViewModels()` 是Android Jetpack中ViewModel组件的一部分，用于在Fragment中获取和Activity关联的ViewModel实例。
@@ -825,14 +568,6 @@ class FragmentB : Fragment() {
 
 在 `GridLayoutManager` 中，这两个方法的行为可能会受到其列数的影响。例如，如果你的 `GridLayoutManager` 配置为有多列，那么 `findLastVisibleItemPosition` 可能会返回当前可见的最后一行中的任何一个项目的位置，即使它们并不是在屏幕上的最后一个项目。同样，`findLastCompletelyVisibleItemPosition` 将返回最后一行中完全可见的最后一个项目的位置。
 
-## get 请求 url query 数据比较多时会影响接口速度吗
-
-HTTP GET 请求的数据都包含在 URL 中，由于浏览器和服务器对 URL 长度都有一定的限制（通常最多为2000个字符），所以如果 query 数据过多，可能会导致请求失败。而且，由于 GET 请求的数据都会被添加到 URL 中，这可能会暴露敏感数据，因此对于包含敏感信息的数据，通常推荐使用 POST 请求。
-
-至于是否会影响接口速度，一般来说，数据量本身并不会直接影响接口的响应速度。但是，如果数据量过大，可能会增加服务器解析和处理请求的时间，从而间接影响到接口的响应速度。此外，如果网络带宽有限，大量的数据也可能会占用更多的带宽，从而影响请求的速度。
-
-总的来说，如果你有大量的 query 数据需要发送，最好考虑使用 POST 请求，或者将数据分割成多个小的 GET 请求。
-
 ## RecyclerView  onScrolled onScrollStateChanged 区别
 
 `onScrolled`和`onScrollStateChanged`都是RecyclerView的滚动监听方法，它们的主要区别在于触发时机和用途：
@@ -842,38 +577,6 @@ HTTP GET 请求的数据都包含在 URL 中，由于浏览器和服务器对 UR
 2.  `onScrollStateChanged(RecyclerView recyclerView, int newState)`: 这个方法在RecyclerView的滚动状态改变时被调用。newState参数表示新的滚动状态，有三种可能的值：`SCROLL_STATE_IDLE`（停止滚动），`SCROLL_STATE_DRAGGING`（手指拖动中），`SCROLL_STATE_SETTLING`（自动滚动中）。这个方法常常被用于实现如图片懒加载（滚动停止时加载图片）等功能。
 
 简单来说，`onScrolled`更关注滚动的位移，而`onScrollStateChanged`更关注滚动的状态变化。
-
-## Fragment 生命周期
-
-Fragment的生命周期主要包括以下几个阶段和对应的方法：
-
-1.  `onAttach(Context)`：当Fragment与Activity建立关联时调用。
-
-2.  `onCreate(Bundle)`：创建Fragment时被回调。
-
-3.  `onCreateView(LayoutInflater, ViewGroup, Bundle)`：创建Fragment的视图布局时被回调，返回Fragment的视图布局。
-
-4.  `onViewCreated(View, Bundle)`：当Fragment的视图创建完成后被回调。
-
-5.  `onActivityCreated(Bundle)`：当Activity的onCreate方法返回后调用。
-
-6.  `onStart()`：当Fragment可见时调用。
-
-7.  `onResume()`：当Fragment可交互时调用。
-
-以上是Fragment处于活动状态的生命周期，当Fragment处于非活动状态时，会依次调用以下方法：
-
-1.  `onPause()`：当Fragment暂停时调用。
-
-2.  `onStop()`：当Fragment停止时调用。
-
-3.  `onDestroyView()`：当Fragment的视图被销毁时调用。
-
-4.  `onDestroy()`：当Fragment被销毁时调用。
-
-5.  `onDetach()`：当Fragment与Activity解除关联时调用。
-
-这就是Fragment的生命周期，每个阶段都对应有相应的回调方法，可以根据需要在这些方法中添加逻辑来处理特定的应用需求。
 
 ## Fragment 中使用 lifecycleScope 和 viewLifecycleOwner.lifecycleScope 的区别
 
@@ -1022,90 +725,6 @@ Ktor 和 OkHttp 都是优秀的库，可以用来在 Android 中创建 WebSocket
 4.  **NV-WebSocket-Client**：NV-WebSocket-Client 是一个轻量级，易于使用的 WebSocket 客户端库，可以在 Android 和 Java 应用中使用。
 
 以上这些库都可以帮助你在 Android 开发中实现 WebSocket 长连接功能。你可以根据你的具体需求和项目要求选择合适的库。
-
-## android edittext maxEms 和 maxLength 区别
-
-`maxEms` 和 `maxLength` 是 Android 开发中常用的两个属性，它们都用于限制 EditText 的输入长度，但是具体的应用方式和效果是有区别的。
-
-1.  `maxEms`: 这个属性用来限制 EditText 的宽度，Ems 是一个长度单位，一般来说，1 Ems 等于一个字符的宽度。所以，如果你设置 `maxEms="10"`，那么 EditText 的宽度就被限制为了10个字符的宽度。当输入的字符超过这个宽度时，EditText 会自动换行。
-
-2.  `maxLength`: 这个属性用来限制 EditText 可以输入的字符的最大数量。比如，如果你设置 `maxLength="10"`，那么用户就只能在这个 EditText 中输入10个字符，超过这个数量的字符将无法输入。
-
-总的来说，`maxEms` 是用来限制 EditText 的宽度（以字符为单位），而 `maxLength` 是用来限制用户可以输入的字符的数量。
-
-## public inline fun TextView\.addTextChangedListener 如何使用
-
-`addTextChangedListener` 是一个用于监听文本变化的函数，它在 Android 中被广泛使用。它提供了三个回调方法：`beforeTextChanged`，`onTextChanged` 和 `afterTextChanged`。
-
-在 Kotlin 中，你可以使用 `addTextChangedListener` 的内联函数来简化代码。以下是一个例子：
-
-```kotlin
-val editText = findViewById<EditText>(R.id.edit_text)
-
-editText.addTextChangedListener {
-    onTextChanged { text, start, before, count ->
-        // 当文本发生改变时，这里的代码会被执行
-        // text：改变后的文本
-        // start：文本改变的起始位置
-        // before：文本改变前的长度
-        // count：新添加的文本长度
-    }
-
-    beforeTextChanged { text, start, count, after ->
-        // 当文本即将发生改变时，这里的代码会被执行
-        // text：改变前的文本
-        // start：文本改变的起始位置
-        // count：被改变的旧文本长度
-        // after：新添加的文本长度
-    }
-
-    afterTextChanged { editable ->
-        // 当文本发生改变后，这里的代码会被执行
-        // editable：改变后的文本
-    }
-}
-```
-
-注意，这三个回调方法都是可选的，你可以根据需要添加你需要的回调。例如，如果你只关心文本改变后的状态，你可以只使用 `afterTextChanged`：
-
-```kotlin
-editText.addTextChangedListener {
-    afterTextChanged { editable ->
-        // 当文本发生改变后，这里的代码会被执行
-    }
-}
-```
-
-这样可以大大简化代码，使其更易读和易维护。
-
-## 'onActivityResult(Int, Int, Intent?): Unit' is deprecated. Overrides deprecated member in 'androidx.activity.ComponentActivity'. Deprecated in Java
-
-`onActivityResult(Int, Int, Intent?): Unit` 被弃用是因为 Android 开发团队引入了一个新的库，叫做 Activity Result APIs，以简化和取代原来的 `onActivityResult` 方法。
-
-在新的 Activity Result API 中，你不再需要处理请求代码。你只需要传递一个回调函数，当结果可用时，这个回调函数将被调用。这使得代码更加简洁和易于理解。
-
-以下是如何使用新的 Activity Result API 的示例：
-
-```kotlin
-val someActivityResultLauncher = registerForActivityResult(
-    ActivityResultContracts.StartActivityForResult()
-) { result: ActivityResult ->
-    if (result.resultCode == Activity.RESULT_OK) {
-        // 你可以在这里处理结果
-        val data: Intent? = result.data
-        // do something
-    }
-}
-
-val intent = Intent(this, SomeActivity::class.java)
-someActivityResultLauncher.launch(intent)
-```
-
-在上面的代码中，`registerForActivityResult` 方法接受一个 `ActivityResultContract` 和一个回调函数。当 Activity 结果可用时，这个回调函数将被调用。在这个例子中，我们使用了 `ActivityResultContracts.StartActivityForResult()`，这是一个预定义的 `ActivityResultContract`，它表示我们想要启动一个 Activity 并获得结果。
-
-然后，你可以使用返回的 `ActivityResultLauncher` 对象来启动你的 Activity。当 Activity 结果可用时，你提供的回调函数将被调用。
-
-注意，你必须在 `onCreate` 方法中或之前调用 `registerForActivityResult` 方法。
 
 ## 除了通过使用 ContentValues 和 ContentResolver ，还有别的方法获取 uri 吗
 
@@ -1527,86 +1146,6 @@ animationView.addAnimatorListener(new Animator.AnimatorListener() {
 ```
 
 请注意，你需要将 `"your_animation.json"` 替换为你实际的动画文件名。这个文件应该放在 `assets` 文件夹中。
-
-## D8/R8 区别是什么，启用了 R8 后，D8还会参与编译打包过程吗
-
-D8 和 R8 是 Android 开发中与构建流程密切相关的两个工具，它们各自承担不同的角色，但都是为了优化APK的构建过程和输出质量。
-
-### D8
-- **作用**：D8 主要负责将 Java 字节码（.class 文件）转换为 Dalvik 可执行格式（.dex 文件）。这一过程称为 dexing。它是 dx 工具的替代品，旨在提高构建速度，并且能够生成更高效的 Dex 文件，从而提升应用的运行效率。
-- **特点**：更快的编译速度，相比dx工具，D8在构建时间上有显著提升。同时，它支持新的语言特性和优化，比如 Java 8 语言特性。
-
-### R8
-- **作用**：R8 是一个代码混淆器（Shrinker）和优化器。它不仅执行代码混淆以保护应用逻辑，还进行代码缩减（移除未使用的类和方法）和优化，从而显著减小最终APK的大小。R8是在D8生成Dex文件之后工作的。
-- **特点**：相比于之前的Proguard，R8提供了更快的混淆和缩减速度，同时保持了代码优化的效果。它直接集成在dexing流程中，与D8紧密协作，优化整体构建时间。
-
-### 启用R8后D8的作用
-
-当项目启用了R8，D8依然会参与编译打包过程。实际上，R8的工作是在D8之后进行的，它们之间是相继执行的关系，而不是互斥的。具体流程大致如下：
-1. **D8**首先将Java字节码转换成Dex格式，支持新语言特性和优化Dex文件结构。
-2. **R8**随后对D8生成的Dex文件进行混淆、缩减和进一步的优化，确保最终输出的APK既小又高效。
-
-综上所述，D8和R8是现代Android构建流程中不可或缺的两部分，共同致力于提升构建速度、减少APK体积以及优化应用性能。启用R8并不会取代D8，而是与其协同工作，共同完成编译和优化的任务。
-
-## R8 ProGuard D8 之间的区别是什么，要如何配置 R8 和 ProGuard 呢
-
-R8 和 ProGuard 都是代码压缩和混淆工具，它们的主要目的是减小 APK 的大小并增加代码的安全性。下面是 R8 和 ProGuard 之间的一些主要区别：
-
-1.  **性能**：R8 是 Google 开发的，相比 ProGuard，R8 在代码压缩和混淆方面的性能更优，能生成更小的 APK 文件。
-
-2.  **兼容性**：R8 完全兼容 ProGuard，所以大部分 ProGuard 的规则在 R8 中都可以使用。
-
-3.  **默认使用**：从 Android Gradle 插件 3.4.0 开始，R8 是默认的代码压缩和混淆工具。
-
-下面是如何在 Android 项目中配置 R8 和 ProGuard：
-
-**配置 R8**：
-
-在项目的 `gradle.properties` 文件中添加以下行来启用 R8：
-
-```properties
-android.enableR8=true
-```
-
-然后，在你的模块的 `build.gradle` 文件中添加以下代码：
-
-```gradle
-android {
-    ...
-    buildTypes {
-        release {
-            minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
-    }
-}
-```
-
-这将启用 R8 并使用默认的 ProGuard 规则文件 `proguard-android-optimize.txt` 和你自定义的规则文件 `proguard-rules.pro`。
-
-**配置 ProGuard**：
-
-如果你想使用 ProGuard 而不是 R8，你需要在 `gradle.properties` 文件中添加以下行来禁用 R8：
-
-```properties
-android.enableR8=false
-```
-
-然后，在你的模块的 `build.gradle` 文件中添加以下代码：
-
-```gradle
-android {
-    ...
-    buildTypes {
-        release {
-            minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-        }
-    }
-}
-```
-
-这将启用 ProGuard 并使用默认的 ProGuard 规则文件 `proguard-android.txt` 和你自定义的规则文件 `proguard-rules.pro`。
 
 ## 图片的大小与加载图片时所占用的内存有关系吗
 
@@ -2684,169 +2223,7 @@ https://www.example.com/path/to/resource?key=value
 
 通过这些方法，你可以灵活地创建和修改 URI，以满足不同的需求。每种方法都有其适用的场景，你可以根据具体情况选择最合适的方法。
 
-## android 升级 Gradle 7.0 需要做哪些兼容或适配
-升级 Android 项目到 Gradle 7.0 及以上版本时，需要注意几个关键点以确保兼容性和适配。以下是一些常见的适配步骤：
-
-### 1. 更新 Gradle 版本
-
-首先，确保在项目的根目录下的 `build.gradle` 文件中更新 Gradle 插件版本。例如，如果您正在从 Gradle 6.x 升级到 7.0，您需要更新 `classpath` 中的 Gradle 插件版本：
-
-```gradle
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:7.0.0'
-
-        // NOTE: Do not place your application dependencies here; they belong
-        // in the individual module build.gradle files
-    }
-}
-```
-
-### 2. 更新 Android Gradle 插件版本
-
-确保在每个模块的 `build.gradle` 文件中更新 Android Gradle 插件版本：
-
-```gradle
-plugins {
-    id 'com.android.application' version '7.0.0' apply false
-    id 'com.android.library' version '7.0.0' apply false
-}
-```
-
-### 3. 适配新的构建特性
-
-Gradle 7.0 引入了一些新的特性，包括但不限于：
-
-- **Kotlin DSL**：Gradle 7.0 支持 Kotlin DSL 作为默认的脚本语言。如果您之前使用 Groovy DSL，您可能需要考虑是否迁移到 Kotlin DSL。
-- **Toml 版本文件**：如前所述，Gradle 7.0 支持使用 `lib.versions.toml` 文件来管理依赖版本。如果您选择使用这种新的版本管理机制，需要创建和配置相应的文件。
-- **Android Gradle Plugin (AGP) 特性**：AGP 7.0 可能包含了一些新的功能和改进，例如更严格的依赖检查、新的编译选项等。确保阅读 AGP 7.0 的发布说明以了解所有更改。
-
-### 4. 更新依赖库
-
-随着 Gradle 版本的升级，您可能还需要更新一些依赖库，尤其是那些已经更新了版本以支持新 Gradle 版本的库。查看依赖库的文档以确认是否需要进行版本更新。
-
-### 5. 测试和验证
-
-升级后，请彻底测试您的应用程序，确保一切按预期工作。特别注意以下方面：
-
-- **构建速度**：检查构建速度是否有显著变化。
-- **构建输出**：确保构建输出正确无误。
-- **运行时行为**：确保应用程序在目标设备上正常运行。
-
-### 6. 查阅官方文档
-
-最后，强烈建议查阅 [Android Gradle 插件](https://developer.android.com/studio/releases/gradle-plugin#updating-gradle-plugin) 的官方文档和 Gradle 官方文档以了解所有新特性和变更。这些文档通常会提供详细的迁移指南和最佳实践。
-
-### 示例
-
-以下是升级到 Gradle 7.0 后的一个简单的 `build.gradle` 文件示例：
-
-```gradle
-// app/build.gradle
-apply plugin: 'com.android.application'
-
-android {
-    compileSdkVersion 32
-
-    defaultConfig {
-        applicationId "com.example.myapp"
-        minSdkVersion 21
-        targetSdkVersion 32
-        versionCode 1
-        versionName "1.0"
-
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-    }
-
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
-    }
-
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
-    }
-
-    kotlinOptions {
-        jvmTarget = '1.8'
-    }
-}
-
-dependencies {
-    implementation fileTree(include: ['*.jar'], dir: 'libs')
-    implementation 'androidx.core:core-ktx:1.8.0'
-    implementation 'androidx.appcompat:appcompat:1.4.2'
-    implementation 'com.google.android.material:material:1.6.1'
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    testImplementation 'junit:junit:4.+'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.3'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
-}
-```
-
-### 总结
-
-升级到 Gradle 7.0 及以上版本时，需要关注 Gradle 和 Android Gradle 插件版本的更新、适配新的构建特性、更新依赖库，并进行充分的测试以确保应用程序的稳定性和兼容性。务必查阅官方文档以获取详细的迁移指南。
-
-
-#### 示例
-```javascript
-const numbers = [1, 2, 3, 4, 5];
-const squaredNumbers = numbers.map(function (number) {
-  return number * number;
-});
-
-console.log(squaredNumbers); // 输出: [1, 4, 9, 16, 25]
-```
-
-### 2. `reduce()`
-
-#### 用途
-`reduce()` 方法对数组中的每个元素执行一个由您提供的 reducer 函数(升序执行)，将其结果汇总为单个返回值。
-
-#### 语法
-```javascript
-array.reduce(callback(accumulator, currentValue[, currentIndex[, array]])[, initialValue])
-```
-
-#### 参数
-- `callback`: 必需。一个函数，它会被调用一次来处理数组中的每个元素。该函数可以接受以下参数：
-  - `accumulator`: 必需。累积器的初始值，或者是上一次调用回调函数的返回值。
-  - `currentValue`: 必需。当前正在处理的数组元素。
-  - `currentIndex`: 可选。当前正在处理的数组元素的索引。
-  - `array`: 可选。调用 `reduce` 方法的原始数组。
-- `initialValue`: 可选。累积器的初始值。
-
-#### 返回值
-`reduce()` 返回一个单一的值，这是由 `callback` 函数处理数组元素的结果。
-
-#### 示例
-```javascript
-const numbers = [1, 2, 3, 4, 5];
-const sum = numbers.reduce(function (accumulator, currentValue) {
-  return accumulator + currentValue;
-}, 0);
-
-console.log(sum); // 输出: 15
-```
-
-### 总结
-- `map()` 用于转换数组中的每个元素，并生成一个新数组。
-- `reduce()` 用于将数组中的多个值汇总成一个单一的值。
-
-这两种方法都非常强大，可以帮助你以更简洁、更易于理解的方式来处理数组数据。 
-
 ## 在 onNewIntent 即使没有调用 setIntent，直接使用 intent 参数，该 intent 就是最新的吗？setIntent 影响的是通过 getIntent 获取到的 intent，是这样吗
-
-### `onNewIntent` 方法中的 `Intent` 参数与 `setIntent` 方法
 
 是的，你的理解是正确的。在 `onNewIntent` 方法中，即使没有调用 `setIntent`，直接使用传递给 `onNewIntent` 方法的 `Intent` 参数，该 `Intent` 就是最新的 `Intent`。调用 `setIntent` 方法的主要作用是更新 Activity 的内部 `Intent` 对象，这样后续调用 `getIntent` 方法时能够获取到最新的 `Intent`。
 
@@ -2864,7 +2241,7 @@ console.log(sum); // 输出: 15
        String data = intent.getStringExtra("key");
        Log.d("MainActivity", "Data from onNewIntent: " + data);
    }
-   ```
+
 
 2. **`setIntent` 方法的作用**:
    - `setIntent` 方法用于更新 Activity 的内部 `Intent` 对象。
@@ -2881,62 +2258,6 @@ console.log(sum); // 输出: 15
        Log.d("MainActivity", "Data from getIntent: " + data);
    }
    ```
-
-#### 示例代码
-
-以下是一个完整的示例，展示在 `onNewIntent` 方法中直接使用 `Intent` 参数和使用 `setIntent` 更新内部 `Intent` 对象的区别：
-
-```java
-public class MainActivity extends AppCompatActivity {
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-
-        // 初始处理 Intent 数据
-        handleIntent(getIntent());
-    }
-
-    @Override
-    protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-        // 直接使用传递进来的 intent 参数
-        String dataFromIntent = intent.getStringExtra("key");
-        Log.d("MainActivity", "Data from onNewIntent: " + dataFromIntent);
-
-        // 更新 Activity 的内部 Intent 对象
-        setIntent(intent);
-        // 使用 getIntent() 获取最新的 Intent 数据
-        String dataFromGetIntent = getIntent().getStringExtra("key");
-        Log.d("MainActivity", "Data from getIntent: " + dataFromGetIntent);
-
-        // 处理新的 Intent 数据
-        handleIntent(intent);
-    }
-
-    private void handleIntent(Intent intent) {
-        // 从 Intent 中提取数据并处理
-        String data = intent.getStringExtra("key");
-        Log.d("MainActivity", "Data from handleIntent: " + data);
-    }
-}
-```
-
-#### 关键点总结
-
-- **`onNewIntent` 方法中的 `Intent` 参数**:
-  - 直接使用传递给 `onNewIntent` 方法的 `Intent` 参数可以获取到最新的 `Intent` 数据。
-
-- **`setIntent` 方法的作用**:
-  - `setIntent` 方法用于更新 Activity 的内部 `Intent` 对象。
-  - 这样可以确保在后续调用 `getIntent` 方法时能够获取到最新的 `Intent` 数据。
-
-- **使用场景**:
-  - 如果你只在 `onNewIntent` 方法中处理新的 `Intent` 数据，可以直接使用传递进来的 `Intent` 参数。
-  - 如果你的代码在其他地方需要获取最新的 `Intent` 数据（例如在 `onResume` 或其他生命周期方法中），你应该使用 `setIntent` 方法更新内部 `Intent` 对象，以确保 `getIntent` 方法返回的是最新的 `Intent`。
-
-通过这些步骤，你可以在 `onNewIntent` 方法中正确处理新的 `Intent` 数据，并确保 Activity 的内部 `Intent` 对象始终是最新的。
 
 ## Android Applinks 如何配置，兼容性如何保证
 
@@ -3734,72 +3055,6 @@ public class MainActivity extends AppCompatActivity {
 
 构建和运行项目。如果一切配置正确，你应该会看到TextView显示 "Hello from C++"。
 
-## Android 应用模块使用 aar 和 源码依赖库模块之间的区别是什么
-
-在 Android 开发中，使用 AAR（Android Archive）和源码依赖库模块是两种常见的依赖管理方法。它们在使用场景、优缺点和适用性上存在一些区别。
-
-### AAR（Android Archive）
-
-AAR 是一种用于发布和分发 Android 库的打包格式，类似于 JAR 文件，但专门用于 Android 项目。它包含了编译后的代码、资源文件、清单文件、ProGuard 配置等。
-
-#### 优点
-
-1. **封装性**：
-   - AAR 文件是一个完整的包，包含了所有资源、代码和依赖，因此它是一个自包含的单元。
-
-2. **易于分发**：
-   - 可以通过 Maven 仓库或手动分发的方式共享给其他项目使用。
-
-3. **保护源码**：
-   - 因为 AAR 文件只包含编译后的字节码，所以可以保护源码不被直接查看。
-
-4. **快速构建**：
-   - 使用 AAR 可以减少构建时间，因为它已经是编译好的二进制文件。
-
-#### 缺点
-
-1. **调试困难**：
-   - 如果 AAR 包含的代码有问题，调试会比较困难，因为无法直接查看或修改源码。
-
-2. **灵活性较差**：
-   - 无法轻易修改库的实现细节或配置，除非重新生成 AAR。
-
-### 源码依赖库模块
-
-源码依赖库模块指的是直接将库的源码作为模块包含在项目中。这种方式通常通过多模块项目的方式实现。
-
-#### 优点
-
-1. **可调试性**：
-   - 可以直接查看、调试和修改库的源码，这对于发现和修复问题非常有帮助。
-
-2. **灵活性**：
-   - 可以根据项目的需求对库进行定制化修改。
-
-3. **便于集成开发**：
-   - 在开发阶段，尤其是当库和应用需要频繁交互时，使用源码依赖可以更快速地进行集成和测试。
-
-#### 缺点
-
-1. **构建时间较长**：
-   - 每次构建都需要编译库的源码，可能会增加构建时间。
-
-2. **源码管理复杂**：
-   - 需要管理更多的源码，可能导致项目结构复杂化。
-
-3. **版本控制复杂**：
-   - 如果多个项目共享同一个库模块，管理版本更新可能会变得复杂。
-
-### 适用场景
-
-- **使用 AAR**：适合在库功能稳定、无需频繁修改的情况下使用，尤其是在需要保护源码或快速分发的场景。
-  
-- **使用源码依赖**：适合在开发阶段需要频繁调试和修改库的情况下使用，特别是在库和应用之间有紧密耦合的情况下。
-
-### 总结
-
-选择使用 AAR 还是源码依赖库模块，主要取决于项目的需求、开发阶段以及对库的控制需求。在开发初期或需要频繁调试时，使用源码依赖可能更合适；而在发布阶段或需要保护源码时，使用 AAR 则更为适合。
-
 ## JsonObject 和 JSONObject 什么区别
 
 `JsonObject` 和 `JSONObject` 是两个不同的类，分别来自不同的 JSON 处理库。它们用于解析和操作 JSON 数据，但来自不同的库，并有不同的用法和特性。
@@ -4238,20 +3493,6 @@ Android 平台 (SDK)
 - **ASM** 直接操作字节码，实现底层逻辑增强。
 
 三者分别作用于源码、构建流程和字节码，组合使用可实现高度自动化和深度定制的开发需求。
-
-## Material components for Android、Material Design 2、Material Design 3 关系？
-
-- **MDC-Android 是基础库**：它提供了组件和主题的实现能力。
-    
-- **MaterialComponents Theme 和 Material 3 Theme 是库提供的两种主要主题体系**：
-    
-    - `MaterialComponents Theme` = 基于 **Material Design 2 (经典)**。
-        
-    - `Material 3 Theme` = 基于 **Material Design 3 (Material You)**。**Material 3 Theme 是更新、推荐的方向。**
-        
-- **Material3Expressive 是 Material 3 Theme 的一个子集/变体**：它不是独立的主题，而是一种在 Material 3 主题基础上应用特定品牌表达（更圆润、更流畅）的**风格配置方式**。要使用 `Material3Expressive`，你必须先使用 `Theme.Material3`。
-
-**继承关系：** `Theme.Material3` -> `Theme.MaterialComponents` -> `Theme.AppCompat` -> `Theme`
 `
 ## 一行文字的高度是由哪些因素决定的？
 
@@ -4302,9 +3543,7 @@ Android 平台 (SDK)
 - **行高**（`line-height`）是基线间距，影响多行文字的间距，也决定了单行文字的垂直空间。
 - **行间距**（Leading）是行高与字体大小的差值，被平均分配到字符上下。
 
----
 ## 不同 ABI so 的兼容性是什么，与对应设备的 CPU 架构关系是什么
-## ABI 与 CPU 架构兼容性关系
 
 ### **主流 ABI 架构**
 
@@ -4433,3 +3672,85 @@ android {
 | ED25519                       | id_ed25519.pub | id_ed25519 | ssh-keygen -t ed25519 |
 | RSA<br><br>(Open ssh 版本小于8.8） | id_rsa.pub     | id_rsa     | ssh-keygen -t rsa     |
 | ECDSA                         | id_ecdsa.pub   | id_ecdsa   | ssh-keygen -t ecdsa   |
+## 为什么 Gradle 7.0+ 需要 Java 11，而且国内大部分项目不是 Java8 就是 Java 11，为什么其它版本不常用
+
+### 1. 为什么 Gradle 7.0+ (尤其是 AGP 7.0+) 强制要求 Java 11？
+
+这并非 Gradle 单方面的“任性”，而是 **Android Gradle Plugin (AGP) 7.0** 的一次重大架构升级导致的，主要原因有两点：
+
+*   **构建工具自身的进化**：
+    Gradle 和 AGP 本身也是用 Java 编写的程序。为了提升构建速度、利用更高效的内存管理（如 ZGC）和新的语言特性（如 `var`、模块化系统），AGP 开发团队决定在 7.0 版本将**运行环境**的最低要求提升到 Java 11。这就像你的 APP 升级了最低 Android 版本以使用新 API 一样，构建工具也需要升级底座。
+*   **统一开发环境**：
+    在 AGP 7.0 之前，开发者经常混淆“编译代码用的 JDK”和“运行 Gradle 用的 JDK”。从 Android Studio Arctic Fox (2020.3.1) 开始，Google 直接在 IDE 中捆绑了 JDK 11，并将 AGP 7.0 默认配置为使用该 JDK 运行，以减少环境配置错误。
+
+**关键区分：** 这里指的是**运行 Gradle 构建工具**需要 Java 11，而不是说你的 APP 代码必须写成 Java 11。你仍然可以在 Java 11 的环境下编译 Java 8 的代码（通过 `sourceCompatibility = JavaVersion.VERSION_1_8`）。
+```gradle
+android { 
+ compileOptions { 
+   // 告诉编译器：虽然你很强，但请把代码处理成 Java 8 的样子 
+   sourceCompatibility JavaVersion.VERSION_1_8 
+   targetCompatibility JavaVersion.VERSION_1_8 
+  } 
+ kotlinOptions { 
+   jvmTarget = '1.8' 
+  } 
+}
+```
+
+### 2. 为什么国内项目大多是 Java 8 或 Java 11，其他版本很少？
+
+这主要由 **LTS（长期支持版）策略** 和 **Android 系统限制** 共同决定：
+
+1.  **LTS 的统治力**：
+    企业级开发极其看重稳定性。
+    *   **Java 8 (2014)**：是目前存量最大的版本，生态最完善，许多老旧的银行、国企项目不敢轻易迁移。
+    *   **Java 11 (2018)**：是 Java 8 之后的第一个 LTS 版本，是目前新项目的首选标准。
+    *   **Java 17 (2021) & 21 (2023)**：虽然也是 LTS，但国内迁移速度较慢，通常只有大厂的基建部门或追求极致性能的新项目（如使用 Spring Boot 3）才会跟进。
+2.  **Android 的特殊性（Desugaring）**：
+    Android 系统并不直接运行 Java 字节码，而是运行 Dex 字节码。Android 设备上的虚拟机（ART/Dalvik）对新版 Java 语法的支持是滞后的。
+    *   虽然 AGP 提供了“脱糖”（Desugaring）功能，让旧手机也能运行新 Java 语法，但这种支持是有限的。Java 8 的特性支持最完美，Java 11 次之，更高版本的特性在 Android 上往往难以完全发挥，甚至导致兼容性崩溃。
+
+### 3. 为什么用了 Java 21 等新版本就会报错（编译不过）？
+
+这是因为**Gradle 版本过低，无法“认识”新版 JDK 产生的字节码格式**。
+
+核心原因：Class File Version 冲突
+Java 的每个版本都有对应的类文件版本号（Class File Major Version）。
+*   Java 8 = 52
+*   Java 11 = 55
+*   Java 17 = 61
+*   **Java 21 = 65**
+
+当你用 JDK 21 运行一个老版本的 Gradle（比如 Gradle 7.4）时，Gradle 的守护进程（Daemon）会尝试读取 JDK 21 的信息。但 Gradle 7.4 发布时，Java 21 还没出生，Gradle 内部的代码检查到版本号 `65` 时，发现自己不认识，就会直接抛出 `Unsupported class file major version 65` 错误。
+
+Gradle 与 Java 版本的兼容性矩阵
+
+要使用新版 Java，必须升级 Gradle。以下是关键节点的对照表：
+
+| Java 版本     | 要求的最低 Gradle 版本 | 备注                  |
+| :---------- | :-------------- | :------------------ |
+| **Java 8**  | Gradle 2.0+     | 经典组合                |
+| **Java 11** | Gradle 5.0+     | AGP 7.0+ 的强制要求      |
+| **Java 17** | **Gradle 7.3+** | Spring Boot 3 的最低要求 |
+| **Java 21** | **Gradle 8.5+** | 2026年很多新框架的标准       |
+
+**结论：**
+如果你想在项目中使用 **Java 21**，你必须将 `gradle-wrapper.properties` 中的 Gradle 版本升级到 **8.5** 或更高。如果你还在用 Gradle 7.x 或 8.0，它根本无法理解 Java 21 的环境，自然会报错。
+
+### 总结建议
+
+1.  **对于老项目**：保持 **AGP 7.x + Gradle 7.5 + JDK 11** 是最稳妥的“养老”配置，兼容性最好。
+2.  **对于新项目**：推荐直接上 **AGP 8.x + Gradle 8.7+ + JDK 17/21**，以享受构建速度提升。
+## Android Studio 版本、AGP、Gradle、JDK 这四个版本的相互关联关系如何简单记忆
+
+**Android Studio** (限制) ➔ **AGP** (依赖) ➔ **Gradle** (依赖) ➔ **JDK**
+
+1. **AS 决定 AGP**：
+    - 你装了**最新版 Android Studio**（包工头），它就强制要求你用**较新的 AGP**（图纸）。
+    - _比如：AS 2025 强行要求 AGP 4.0+。_
+2. **AGP 决定 Gradle**：
+    - 你升级了 **AGP**（图纸），图纸上写着“需要高级工艺”，所以必须升级 **Gradle**（工人）。
+    - _比如：AGP 4.0 强行要求 Gradle 6.1+。_
+3. **Gradle 决定 JDK**：
+    - 你升级了 **Gradle**（工人），新工人的身体构造变了，必须运行在 **新版 JDK**（环境）上。
+    - _比如：Gradle 8.0+ 强行要求 JDK 17+ 才能跑起来。
