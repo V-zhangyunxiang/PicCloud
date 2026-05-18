@@ -1296,7 +1296,7 @@ Homebrew 是一个非常流行的包管理工具，可以用来安装许多 `zsh
 
 2. 找到 `plugins` 行，并添加你想要启用的插件：
    ```sh
-   plugins=(git zsh-syntax-highlighting zsh-autosuggestions autojump)
+   plugins=(git)
    ```
 
 3. 保存并退出编辑器，然后重新加载 `.zshrc` 文件：
@@ -1332,9 +1332,7 @@ Homebrew 是一个非常流行的包管理工具，可以用来安装许多 `zsh
 
 1. **安装目录**：`oh-my-zsh` 默认安装在 `~/.oh-my-zsh` 目录中。
 2. **使用 Homebrew 安装插件**：可以在用户的主目录下使用 Homebrew 安装插件。
-3. **配置插件**：
-   - 编辑 `.zshrc` 文件，将插件添加到 `plugins` 数组中。
-   - 添加必要的初始化代码以确保插件生效。
+3. **配置插件**：添加必要的初始化代码以确保插件生效。
 
 通过以上步骤，你可以成功安装 `oh-my-zsh` 并配置一些高效的插件，使它们在你的终端中生效。这样，你将拥有一个功能强大且高效的 `zsh` 环境。
 
@@ -1418,49 +1416,18 @@ Homebrew 是一个非常流行的包管理工具，可以用来安装许多 `zsh
 
 2. 找到 `plugins` 行，并添加你想要启用的插件：
    ```sh
-   plugins=(git zsh-syntax-highlighting zsh-autosuggestions z autojump)
+   plugins=(git zsh-syntax-highlighting zsh-autosuggestions autojump)
    ```
 
 3. 保存并退出编辑器，然后重新加载 `.zshrc` 文件：
    ```sh
    source ~/.zshrc
    ```
-
-#### 配置插件的额外步骤
-
-一些插件可能需要额外的配置步骤：
-
-1. **zsh-syntax-highlighting**：
-   确保在 `.zshrc` 文件末尾添加以下行以启用语法高亮：
-   ```sh
-   source ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-   ```
-
-2. **zsh-autosuggestions**：
-   确保在 `.zshrc` 文件末尾添加以下行以启用自动建议：
-   ```sh
-   source ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
-   ```
-
-3. **z**：
-   确保在 `.zshrc` 文件末尾添加以下行以启用 `z`：
-   ```sh
-   . ~/.oh-my-zsh/custom/plugins/z/z.sh
-   ```
-
-4. **autojump**：
-   `autojump` 需要在 `.zshrc` 文件中添加初始化代码：
-   ```sh
-   [[ -s ~/.autojump/etc/profile.d/autojump.sh ]] && . ~/.autojump/etc/profile.d/autojump.sh
-   ```
-
 ### 结论
 
 1. **安装目录**：`oh-my-zsh` 默认安装在 `~/.oh-my-zsh` 目录中。
 2. **插件安装目录**：插件通常安装在 `~/.oh-my-zsh/custom/plugins` 目录中。
-3. **配置插件**：
-   - 编辑 `.zshrc` 文件，将插件添加到 `plugins` 数组中。
-   - 添加必要的初始化代码以确保插件生效。
+3. **配置插件**：编辑 `.zshrc` 文件，将插件添加到 `plugins` 数组中。
 
 通过以上步骤，你可以成功安装 `oh-my-zsh` 并配置一些高效的插件，使它们在你的终端中生效。这样，你将拥有一个功能强大且高效的 `zsh` 环境。
 
