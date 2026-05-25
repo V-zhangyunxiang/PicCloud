@@ -2037,15 +2037,15 @@ Material Design 2（MD2）
 Material Design 3（MD3）
 - **来源**：同样来自 Material Components 库（版本 1.5.0+ 开始引入 MD3 主题）。
 - **实现主题**：`Theme.Material3` 及其变体（如 `Theme.Material3.DayNight`）。
-- **本质**：实现了 **Material Design 3 设计语言**的最新官方主题。它**在 AppCompat 的基础上**增加了 MD3 特有的新特性，例如**动态颜色、新的颜色系统、更新的组件样式、新的组件等。
+- **本质**：实现了 **Material Design 3 设计语言**的最新官方主题。它**在 AppCompat 的基础上**增加了 MD3 特有的新特性，例如动态颜色、新的颜色系统、更新的组件样式、新的组件等。
 
 **三者的关系**
 
 三者实际上是**层层继承**的：
 
-- `Theme.AppCompat` 是最基础的兼容性主题，它本身继承自系统原生主题（如 `Theme` 或 `Theme.Material`，取决于 API 级别）。
-- `Theme.MaterialComponents`（MD2 主题）**直接继承自 `Theme.AppCompat`**，并在此基础上添加 MD2 特定的属性定义和默认值。
-- `Theme.Material3`（MD3 主题）同样**直接继承自 `Theme.AppCompat`**（或其特定的变体），而非继承自 `Theme.MaterialComponents`。这意味着 MD3 和 MD2 是并列的两个分支，它们都建立在 AppCompat 的兼容性基础上，但各自实现不同的设计规范。
+- `Theme.AppCompat` 是最基础的兼容性主题，它本身继承自系统原生主题(如 `Theme` 或 `Theme.Material`，取决于 API 级别)。
+- `Theme.MaterialComponents`(MD2 主题)**直接继承自 `Theme.AppCompat`**，并在此基础上添加 MD2 特定的属性定义和默认值。
+- `Theme.Material3`(MD3 主题)**同样直接继承自 `Theme.AppCompat`(或其特定的变体)，而非继承自 `Theme.MaterialComponents`**。这意味着 MD3 和 MD2 是并列的两个分支，它们都建立在 AppCompat 的兼容性基础上，但各自实现不同的设计规范。
 
 ## Android Theme 的发展历程，目前使用的策略是什么
 
