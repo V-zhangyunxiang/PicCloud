@@ -1336,6 +1336,39 @@ Homebrew 是一个非常流行的包管理工具，可以用来安装许多 `zsh
 
 通过以上步骤，你可以成功安装 `oh-my-zsh` 并配置一些高效的插件，使它们在你的终端中生效。这样，你将拥有一个功能强大且高效的 `zsh` 环境。
 
+## iTerm2 安装 **Powerlevel10k** 步骤
+
+```bash
+git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
+```
+
+编辑 `~/.zshrc` 文件，设置 `ZSH_THEME="powerlevel10k/powerlevel10k"`，然后运行 `p10k configure` 命令进行交互式配置。
+
+**配置 iTerm2 使用本地网络代理**
+
+在你的 Shell 配置文件（~/.zshrc 或 ~/.bash_profile）末尾添加：
+
+```zsh
+alias proxy='export http_proxy=http://127.0.0.1:10808 https_proxy=http://127.0.0.1:10808' 
+alias unproxy='unset http_proxy https_proxy'
+```
+
+保存后执行 source ~/.zshrc（或对应的配置文件），之后在终端输入 proxy 即可开启代理，输入 unproxy 即可关闭。
+
+**常用命令**
+
+echo ~SHELL 查看当前使用的终端
+
+which -a zsh 查看系统中所有 zsh 的位置
+
+which zsh 查看当前使用 zsh 的位置
+
+zsh --version 查看 zsh 版本号
+
+ls ~/.oh-my-zsh 查看是否安装了 Oh My Zsh
+
+cat /etc/shells 查看注册的所有终端
+
 ## 不使用 Homebrew，如何安装这些 oh-my-zsh 插件，需要 cd 到特定目录吗
 
 如果不使用 Homebrew，你可以手动克隆插件的代码库到 `oh-my-zsh` 的自定义插件目录中。以下是详细的步骤和配置指南：
