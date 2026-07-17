@@ -479,8 +479,6 @@ dependencies {
 
     // 其他所有模块都需要的公共依赖也可以放这里，例如：
     implementation project(":common") // 如果所有业务模块都依赖 common
-    testImplementation "junit:junit:4.13.2"
-    androidTestImplementation "androidx.test.ext:junit:1.1.5"
 }
 ```
 
@@ -494,7 +492,8 @@ plugins {
     // 但这里需要声明应用脚本，它会带入插件
 }
 
-apply from: "$rootDir/gradle/scripts/common_module.gradle"
+// 导入 common_module
+apply from: "$rootDir/gradle/scripts/common_module.gradle"  
 
 android {
     // 如果有特殊配置，可以覆盖，比如 namespace
@@ -678,7 +677,7 @@ dependencies {
 
 能够有效避免通用脚本在无意中覆盖业务脚本的个性化设定。同时，因为顺序明确，其他开发者在阅读业务模块的 `build.gradle` 时也能一眼看出最终生效的配置值。
 
-# 如何打包 module aar 并上传到 maven 仓库
+# 打包 Module AAR 并上传到 Maven 仓库
 
 要将 Android 模块打包成 AAR 并上传到 Maven 仓库，主流的做法是使用 `maven-publish` 这个 Gradle 插件。
 
@@ -694,43 +693,9 @@ dependencies {
 
 ```kotlin
 // file: your-library-module/build.gradle.kts
-
 plugins {
     id("com.android.library")
     id("maven-publish") // 1. 应用 maven-publish 插件
-}
-
-android {
-    // ... 你的 android 配置
-    publishing {
-        singleVariant("release") { // 2. 可选配置，指定发布变体并包含源码和文档
-            withSourcesJar()
-            withJavadocJar()
-        }
-    }
-}
-
-// 3. 声明发布配置
-afterEvaluate {
-    publishing {
-        publications {
-            create<MavenPublication>("release") {
-                from(components["release"]) // 核心：指定发布 release 变体的 AAR
-
-                // 定义库的坐标，在依赖引用时会用到
-                groupId = "com.example.mylibrary"
-                artifactId = "mylibrary"
-                version = "1.0.0"
-
-                // 可选：添加 POM 信息，用于发布到 Maven Central 等公共仓库
-                pom {
-                    name.set("My Library")
-                    description.set("A concise description of my library")
-                    url.set("https://github.com/example/my-library")
-                }
-            }
-        }
-    }
 }
 ```
 
@@ -760,6 +725,7 @@ android {
         minSdk = 24
     }
     publishing {
+        //AGP 8.0+ 写法
         singleVariant("release") {
             withSourcesJar()
             withJavadocJar()
@@ -769,12 +735,21 @@ android {
 
 afterEvaluate {
     publishing {
+        //定义要发布什么（产物）
         publications {
             create<MavenPublication>("release") {
+                //核心：指定发布 release 变体的 AAR
                 from(components["release"])
+                // 定义库的坐标，在依赖引用时会用到
                 groupId = "com.example"
                 artifactId = "mylibrary"
                 version = "1.0.0"
+                
+                // 更通用的写法：直接添加源码和文档 JAR，与 AGP 8.0+ 写法二选一
+                artifact(tasks.named("sourcesJar"))
+                artifact(tasks.named("javadocJar"))
+                
+                // 可选：添加 POM 信息，用于发布到 Maven Central 等公共仓库
                 pom {
                     name.set("My Library")
                     description.set("A description of what my library does")
@@ -782,6 +757,7 @@ afterEvaluate {
                 }
             }
         }
+        //定义发布到哪里（目标仓库）
         repositories {
             // 1. 本地 Maven 仓库，用于开发和调试
             mavenLocal()
@@ -789,9 +765,10 @@ afterEvaluate {
             maven {
                 name = "RemoteNexus"
                 url = uri("https://nexus.example.com/repository/maven-releases/")
+                //访问凭证
                 credentials {
-                    username = findProperty("nexus_username") as String? ?: "default_user"
-                    password = findProperty("nexus_password") as String? ?: "default_password"
+                    username = findProperty("nexus_username") as String? ?: ""
+                    password = findProperty("nexus_password") as String? ?: ""
                 }
             }
         }

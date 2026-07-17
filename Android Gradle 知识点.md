@@ -118,15 +118,22 @@ Gradle版本的下载地址，可以查看Gradle官方的[版本发布](https://
 Gradle7.0 之后，project 下的 `build.gradle` 文件变动很大，默认只有 plugin 的引用了，其他原有的配置挪到`settings.gradle`文件中了。
 
 ```gradle
-
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
     id 'com.android.application' version '7.3.0' apply false
     id 'com.android.library' version '7.3.0' apply false
     id 'org.jetbrains.kotlin.android' version '1.7.10' apply false
+    
+    //或者引用 libs.versions.toml 
+    alias(libs.plugins.android.application) apply false
 }
 ```
 
+**`apply false` 到底要不要加？**
+
+- **在根目录 `build.gradle` 中：必须加 `apply false`**。因为根项目不是一个 Android 应用，不能应用 Android 插件。
+    
+- **在 `app/build.gradle` 中：绝对不能加 `apply false`**。否则插件不生效，`android {}` 块会报错。
 ## build.gradle(Module)
 
 位于每个 **project**/**module**/ 目录下，用于为其所在的特定模块配置 build 设置。
@@ -242,8 +249,6 @@ isRelease=true
 
 # Gradle(Project)+setting.gradle 7.x 后配置变化
 
-好的，我来为你详细解释老版本中 `buildscript` 和 `allprojects` 的含义，以及新版本为何迁移到 `settings.gradle` 中的 `pluginManagement` 和 `dependencyResolutionManagement`，并给出清晰的对比示例。
-
 ## 一、老版本中的 `buildscript` 和 `allprojects`
 
 1.`buildscript` 块
@@ -276,7 +281,7 @@ isRelease=true
 1.`pluginManagement`
 
 - **含义**：专门用于管理 Gradle 插件的**解析规则**和**版本**。它告诉 Gradle 去哪里下载插件（如 `com.android.application`、`org.jetbrains.kotlin.android`），以及这些插件的默认版本。
-- **对应关系**：它并不完全替代 `buildscript` 块，而是与 `buildscript` 中的插件依赖**协同工作**。在旧写法中，插件通过 `buildscript { dependencies { classpath ... } }` 声明；新写法中，推荐在 `settings.gradle` 的 `pluginManagement` 中统一声明插件仓库，然后在根 `build.gradle` 的 `plugins` 块中直接使用 `id` 和可选版本，不再需要 `buildscript` 块。
+- **对应关系**：它并不完全替代 `buildscript` 块，而是与 `buildscript` 中的插件依赖**协同工作**。在旧写法中，插件通过 `buildscript { dependencies { classpath ... } }` 声明；**新写法中，推荐在 `settings.gradle` 的 `pluginManagement` 中统一声明插件仓库，然后在根 `build.gradle` 的 `plugins` 块中直接使用 `id` 和可选版本**，不再需要 `buildscript` 块。
   - **旧模式**：`buildscript` 负责下载插件 JAR，然后通过 `apply plugin: '...'` 应用。
   - **新模式**：`pluginManagement` 负责提供插件解析的仓库和版本约束，`plugins { id '...' version '...' }` 直接使用。
 - **注意**：`pluginManagement` 是**可选的**，如果没有它，Gradle 会使用默认的插件解析机制（从 Gradle 插件门户、`buildscript` 仓库等）。
@@ -368,8 +373,7 @@ include ':app'
 根目录 `build.gradle`（变得非常简洁，只留 plugins 块和任务）
 ```groovy
 plugins {
-    // 插件版本已在 settings.gradle 的 pluginManagement 中统一定义？不，这里也可以直接写版本
-    // 但推荐写法：只在 settings.gradle 中管理版本，这里只写 id
+    // 推荐写法：只在 settings.gradle 中管理版本，这里只写 id。见下方可选内容
     id 'com.android.application' apply false
     id 'com.android.library' apply false
     id 'org.jetbrains.kotlin.android' apply false
@@ -382,7 +386,6 @@ task clean(type: Delete) {
 ```
 
 > **注意**：在新模式中，`buildscript` 块通常不再需要，因为 `pluginManagement` 已经接管了插件仓库，而 `plugins` 块中的插件会自动从 `pluginManagement` 的仓库中解析。如果你仍需要使用一些自定义的构建脚本类库（不属于标准插件），可以保留 `buildscript`，但通常不推荐。
-
 
 ### 可选：如果要在 `settings.gradle` 中指定插件版本
 
@@ -486,7 +489,7 @@ android({ compileSdk(32) })
 
 如果你是一个**使用Gradle的开发者**，在日常交流中，这两个词几乎可以**互换**。它们都指代那些写在花括号 `{}` 里、作为参数传给 Gradle API 的“代码块”。
 
-- **功能上**：它们的作用完全一样，都是为了**延迟执行**。Gradle先把你的 `{ ... }` 代码块收起来，等到执行到相应阶段（比如解析`android`配置时），再回过头来运行它。
+- **功能上**：它们的作用完全一样，都是为了**延迟执行**。Gradle 先把你的 `{ ... }` 代码块收起来，等到执行到相应阶段（比如解析`android`配置时），再回过头来运行它。
     
 - **称呼上**：说“把这个闭包传进去”或“把这个 Lambda 传进去”，大家在沟通中都能明白。
 
@@ -579,7 +582,7 @@ button.setOnClickListener(new OnClickListener() {
 button.setOnClickListener(v -> System.out.println("Hello"));
 ```
 
-**Java Lambda VS Kotlin Lambda
+**Java Lambda VS Kotlin Lambda**
 
 虽然都叫 Lambda，但它们的**实现原理**不同，这直接影响了在 Gradle 脚本中的体验。
 
@@ -729,6 +732,7 @@ dependencies {
 - **artifactId：** 项目名称，如果 groupId 包含了项目名称，这里就是子项目名称；
 - **version：** 版本号，一般由 3 位数字组成（x.y.z）；
 ![[GAV 依赖示意图.png]]
+
 依赖传递
 
 **`api` 会将依赖“泄露”给上游模块，而 `implementation` 会把依赖“隐藏”在模块内部**，这直接决定了**编译速度**和**模块耦合度**。
@@ -777,7 +781,7 @@ dependencies {
 
 **现代 Gradle 官方的最佳实践是：**
 
-> **优先使用 `strictly` 来精确控制版本，并尽量避免使用 `force`。
+> 优先使用 `strictly` 来精确控制版本，并尽量避免使用 `force`。
 
 # Gradle Task 
 
@@ -946,4 +950,299 @@ tasks.register("heavyTask") {
 ```
 只有明确执行了 ./gradlew heavyTask -PdoHeavy，doLast 才会执行。
 
+# Gradle Plugin(插件)
 
+## 什么是 Gradle 插件
+
+Gradle 插件是一个**可复用的构建逻辑单元**。它本质上是一段代码，被打包成 JAR 文件，可以被不同的 Gradle 项目引入和使用。插件通过将通用的构建逻辑（如编译、打包、代码检查）封装起来，让构建脚本（`build.gradle`）变得更简洁、更可维护。
+
+## 为什么需要 Gradle 插件？它的核心作用是什么？
+
+插件主要解决了代码复用和标准化的问题。
+
+它的核心作用包括：
+
+- **复用构建逻辑**：避免在每个项目中重复编写相同的任务配置。
+    
+- **引入约定**：提供“约定优于配置”的能力。例如，Android Gradle 插件（AGP）引入了标准的 Android 项目结构（`src/main/java`， `src/main/res`），开发者无需手动配置。
+    
+- **扩展 Gradle 模型**：为 `Project` 对象添加新的功能（如创建新的 Task）和新的配置 DSL（如 `android {}` 块）。
+
+## Gradle 插件有哪几种类型
+
+主要有两种类型：**脚本插件** 和 **二进制插件**。
+
+1. **脚本插件（Script Plugin）**
+    
+    - **定义**：直接写在 `build.gradle` 文件中的一段构建逻辑。或者是一个独立的 `.gradle` 文件，可以在主脚本中通过 `apply from: 'other.gradle'` 引入。
+        
+    - **作用**：快速、轻量，适合在同一个项目内抽取重复的配置片段。
+        
+    - **缺点**：无法跨项目复用，维护成本高。
+        
+2. **二进制插件（Binary Plugin）**
+    
+    - **定义**：实现了 `Plugin<Project>` 接口的类，被打包成 Jar 文件。它可以是 `.jar` 文件、在 `buildSrc` 目录中，或发布到 Maven 仓库。
+        
+    - **作用**：这是官方推荐的**最佳实践**。它易于测试、版本管理，并且可以被多个项目安全地共享和使用。
+
+## 自定义 Gradle 插件
+
+**第一步：实现 `Plugin<Project>` 接口**
+
+位于插件**源码目录**。
+
+- **具体路径**：
+    
+    - 如果是在 `buildSrc` 中：`buildSrc/src/main/kotlin/com/example/MyCustomPlugin.kt` （或 groovy/java）
+        
+    - 如果是在独立插件模块（如 `build-logic`）：`build-logic/plugin/src/main/kotlin/com/example/MyCustomPlugin.kt`
+        
+- **说明**：这里只定义 `apply` 方法里的业务逻辑。
+
+```kotlin
+// 1. 创建一个类，实现 Plugin<Project> 接口
+class MyCustomPlugin : Plugin<Project> {
+    override fun apply(project: Project) {
+        // 在这里编写你的构建逻辑
+        project.tasks.register("myHelloTask") {
+            doLast {
+                println("Hello from my custom plugin!")
+            }
+        }
+    }
+}
+```
+
+**第二步：在 `build.gradle.kts` 中注册插件（定义 ID）**
+
+位于插件**自身的构建脚本**中。
+
+- **具体路径**：
+    
+    - `buildSrc/build.gradle.kts` （如果使用 buildSrc）
+        
+    - `build-logic/plugin/build.gradle.kts` （如果使用独立模块）
+
+```kotlin
+plugins {
+    id 'java-gradle-plugin' // 提供 gradlePlugin {} DSL
+}
+
+gradlePlugin {
+    plugins {
+        create("myPlugin") {
+            id = "com.example.my-plugin" // 用户将使用这个 ID 来引用
+            implementationClass = "com.example.MyCustomPlugin" // 映射到你的实现类
+        }
+    }
+}
+```
+
+`java-gradle-plugin` 是 Gradle 官方提供的一个**核心插件**，它的作用就是**极大地简化 Gradle 插件的开发和发布流程**。主要有以下关键作用:
+
+1. 只需在 `build.gradle` 的 `gradlePlugin` 块中声明插件的 `id` 和 `implementationClass`，它就会在编译时**自动生成**所有必需的元数据文件（包括 `.properties` 文件和 Plugin Marker Artifacts），完全不需要你手动创建。
+2. **自动**将 `gradleApi()` 依赖添加到你的项目中。你不需要在 `build.gradle` 中写任何关于 Gradle API 的依赖声明。
+3. **自动**为你在 `gradlePlugin` 块中声明的每个插件创建对应的 Plugin Marker 工件，并与主 Jar 包一起发布。用户可以直接使用 `plugins { id("com.example.my-plugin") version "1.0" }` 引用，无需任何额外配置。
+4. 提供了 `gradlePlugin {}` 这个类型安全的 DSL 块。你在其中配置 `id` 和 `implementationClass` 时，IDE 会提供自动补全和类型检查，减少拼写错误。
+
+**第三步：在目标项目的 `build.gradle.kts` 中应用插件**
+
+- **文件位置**：位于**目标业务模块**（如 `app`）的构建脚本中。
+    
+- **具体路径**：`app/build.gradle.kts` （或 `lib/build.gradle.kts`）
+
+```kotlin
+// 用户项目的 build.gradle.kts
+plugins {
+    id("com.example.my-plugin") // 通过 ID 应用
+}
+```
+
+## 发布自定义插件
+
+### 第一步：在插件模块中应用插件
+
+在插件模块的 `build.gradle.kts` 中：
+
+```kotlin
+// file: plugin-module/build.gradle.kts
+plugins {
+    id("java-gradle-plugin")     // 开发 Gradle 插件的核心插件
+    id("maven-publish")           // 发布插件
+}
+
+// 定义插件的基本信息（自动生成 META-INF 和 Plugin Marker）
+gradlePlugin {
+    plugins {
+        create("myPlugin") {
+            id = "com.example.my-plugin"
+            implementationClass = "com.example.MyPlugin"
+        }
+    }
+}
+
+// 配置发布信息（和 AAR 类似）
+group = "com.example"
+version = "1.0.0"
+
+publishing {
+    //定义要发布什么（产物）
+    publications {
+        create<MavenPublication>("myPlugin") {
+            // 自动包含插件 JAR + Plugin Marker
+            from(components["java"])
+            artifactId = "my-plugin" //如果不设置，默认取 module name 值。
+            // 或者简写为：from(components["kotlin"]) 如果使用 Kotlin
+        }
+    }
+    //定义发布到哪里（目标仓库）
+    repositories {
+        mavenLocal()
+        maven {
+            name = "RemoteNexus"
+            url = uri("https://nexus.example.com/repository/maven-releases/")
+            //访问凭证
+            credentials {
+                username = project.findProperty("nexusUsername") as? String ?: ""
+                password = project.findProperty("nexusPassword") as? String ?: ""
+            }
+        }
+    }
+}
+```
+
+### 第二步：执行发布任务
+
+```bash
+./gradlew publishToMavenLocal    # 发布到本地 .m2 仓库
+./gradlew publish                # 发布到配置的所有远程仓库
+```
+
+发布后，本地仓库中的目录结构如下：
+
+```text
+~/.m2/repository/com/example/my-plugin/1.0.0/
+├── my-plugin-1.0.0.jar                 # 插件主 JAR
+├── my-plugin-1.0.0.pom                 # 主 POM
+└── my-plugin-1.0.0.module              # Gradle 模块元数据（包含 Plugin Marker）
+```
+
+Gradle 还会自动生成一个“标记文件”用于 `plugins {}` DSL 查找：
+
+```text
+~/.m2/repository/com/example/my-plugin/my-plugin.gradle.plugin/1.0.0/
+└── my-plugin.gradle.plugin-1.0.0.pom   # 这个 POM 指向主 JAR
+```
+### 第三步：在业务项目中使用
+
+**方式一：`plugins {}` 块（两段式）**
+```kotlin
+// app/build.gradle.kts
+plugins {
+    id("com.example.my-plugin") version "1.0.0"
+}
+```
+
+**方式二：旧式 `buildscript`（三段式）**
+```kotlin
+// 根 build.gradle
+buildscript {
+    dependencies {
+        classpath("com.example:my-plugin:1.0.0")
+     }
+}
+// app/build.gradle.kts
+apply(plugin = "com.example.my-plugin")
+```
+### AAR 和 Gradle Plugin 上传对比
+
+|对比维度|**AAR 上传**|**Gradle 插件上传**|
+|---|---|---|
+|**核心产物**|`.aar` 文件（含资源、字节码）|`.jar` 文件（含插件类）+ Plugin Marker|
+|**应用的核心插件**|`com.android.library` + `maven-publish`|`java-gradle-plugin` + `maven-publish`|
+|**声明坐标**|手动指定 `groupId` / `artifactId` / `version`|`group` 和 `version` 手动指定，`artifactId` 默认取项目名|
+|**发布变体**|`from(components["release"])`|`from(components["java"])`|
+|**Plugin Marker**|不需要|**自动生成**（由 `java-gradle-plugin` 完成）|
+|**使用者引用方式**|`implementation("group:name:version")`|`classpath` 或 `plugins { id(...) version(...) }`|
+|**敏感信息管理**|支持 `gradle.properties` 中的 `nexusUsername`|完全相同|
+|**典型场景**|发布 SDK / 公共库给 App 使用|发布构建工具 / 约定插件给团队使用|
+
+## 什么是“插件扩展”（Extension）
+
+插件扩展是一个**暴露给用户的配置 DSL 块**。它允许用户通过 `build.gradle` 脚本来自定义插件的行为。
+
+**如何编写：**
+
+1.**创建扩展类**：用于存储用户配置的数据类。
+
+```kotlin
+class MyPluginExtension {
+    var message: String = "Default Message"
+    var isEnabled: Boolean = true
+}
+```
+
+2.**在插件中注册扩展**：在 `apply` 方法中用 `project.extensions.create` 注册。
+
+```kotlin
+class MyCustomPlugin : Plugin<Project> {
+    override fun apply(project: Project) {
+     // 注册一个名为 "myConfig" 的扩展
+     project.extensions.create("myConfig", MyPluginExtension::class.java)
+        // ... 其他逻辑
+    }
+}
+```
+
+3.**在构建脚本中使用扩展**：
+
+```kotlin
+// app/build.gradle.kts
+myConfig {
+    message = "Hello from build script!"
+    isEnabled = false
+}
+```
+
+4.**在插件中读取配置**：
+
+**`create` 只负责“注册”，`getByType` 负责“使用”**。
+
+```kotlin
+project.tasks.register("printMessage") {
+    doLast {
+        val ext = project.extensions.getByType(MyPluginExtension::class.java)
+        if (ext.isEnabled) {
+            println("Message: ${ext.message}")
+        }
+    }
+}
+```
+
+# SO 文件归属分析
+
+包大小占比重，so 往往是占比大头，但 so 文件属于哪个依赖引入的我们确很难直接看出来，所以需要清楚的知道 so 的来源，才好准确的针对性优化。
+
+build.gradle 中加入下面的配置，打印每个 jar/aar 中包含的 so 文件
+
+```groovy
+configuration.forEach(file -> {
+    String fineName = file.getName();
+    System.out.println(TAG + "fine name = " + fineName);
+    if (fineName.endsWith(".jar") || fineName.endsWith(".aar")) {
+        try {
+            JarFile jarFile = new JarFile(file);
+            for (Enumeration enums = jarFile.entries(); enums.hasMoreElements(); ) {
+                JarEntry jarEntry = (JarEntry) enums.nextElement();
+                if (jarEntry.getName().endsWith(".so")){
+                    System.out.println(TAG + "----- so name = " + jarEntry.getName());
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+});
+
+```
