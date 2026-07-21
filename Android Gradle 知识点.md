@@ -1227,6 +1227,7 @@ project.tasks.register("printMessage") {
 build.gradle 中加入下面的配置，打印每个 jar/aar 中包含的 so 文件
 
 ```groovy
+Configuration configuration = project.getConfigurations().getByName(applicationVariant.getName() + "CompileClasspath");
 configuration.forEach(file -> {
     String fineName = file.getName();
     System.out.println(TAG + "fine name = " + fineName);
@@ -1246,3 +1247,521 @@ configuration.forEach(file -> {
 });
 
 ```
+
+# Gradle 编译优化
+
+## 为什么要做编译优化
+
+1. 提升开发效率：开发者可以更快地编译和运行代码，这意味着对代码的变更可以更快的得到反馈，从而加速开发周期，提升个人和整个团队的生产力。
+2. 提升开发体验：减少了等待时间，提升个人和整个团队的幸福感和满意度。
+
+## 影响编译速度的因素
+
+- 硬件性能：CPU、内存等。
+- 构建配置：缓存、增量编译等。
+- 项目：项目的大小和复杂度，代码量，模块化，依赖管理等。
+- 其他：网络速度，下载慢或者找不到等。
+
+## 优化方案
+
+### 常规优化点
+
+1. 升级 Gradle 版本
+   `Gradle`作为一个构建工具，提升构建性能可以说是基础操作，基本每个大版本都会带来各种各样的性能提升，虽然升级 Gradle 有一定的适配成本，但是如果不升，长此以往，技术负债只会越来越多。
+2. 升级 Java 版本
+   Gradle 是运行在 JVM 上的，Java 性能的提升也会有利于 Gradle。
+3. 升级 Gradle Plugin 版本
+   同 Gradle，一般也都是跟随着 Gradle 升。
+4. 开启并行编译
+   Gradle 默认一次只执行一个 Task，即串行，那我们就可以通过配置让 Gradle 并行来执行Task，从而提升构建效率，缩短构建时间。
+5. 开启守护进程
+   开启守护进程之后，Gradle 不仅可以更好的缓存构建信息，而且运行在后台，不用每次构建都去初始化然后再启动 JVM了。
+6. 启用配置缓存
+   当没有构建配置发生变化的时候，比如构建脚本，Gradle 会直接跳过配置阶段，从而带来性能的提升。
+7. 启用构建缓存
+   同一个 Task 的输入不变的情况下，Gradle 直接去检索缓存中检索输出，就不用再次执行该 Task 了。
+8. 增加 Gradle 内存、Android Studio 内存。
+
+在`gradle.properties`文件中添加：
+
+```text
+   org.gradle.parallel=true //并行编译
+   org.gradle.daemon=true   //守护进程
+   org.gradle.unsafe.configuration-cache=true //启动配置缓存
+   org.gradle.caching=true //启用构建缓存
+```
+
+### 其他优化点
+
+1. 删除无用的依赖
+2. 优化依赖的下载速度
+   使用一些国内的镜像来提升下载速度。
+3. 避免编译和打包不测试的资源，按需编译。
+4. 使用非传递 R 类
+   使用非传递 R 类可为具有多个模块的应用构建更快的 build，确保每个模块的 R 类仅包含对其自身资源的引用，而不会从其依赖项中提取引用，从而帮助防止资源重复，Gradle 插件 8.0.0 及更高版本中的默认开启。
+5. 停用 Jetifier 标志。
+   `Jetifier`是把 support 包转成 AndroidX 的工具，如果已经适配完毕，可以关闭。
+6. 使用 KSP 代替 kapt
+   `kapt`是 Kotlin 注解处理工具，kapt 的运行速度明显慢于 KSP。
+7. AAR 模块化
+   AAR 已经是编译后产物，减少了工程参与编译的代码。
+
+在`gradle.properties`文件中添加：
+
+```text
+android.nonTransitiveRClass=true // 使用非传递 R 类
+android.enableJetifier=false  // 停用 Jetifier 标志
+```
+
+# 依赖动态切换
+
+module 有源码和 aar 依赖两种方式，实际开发调试过程中需要将对应模块通过源码依赖进行开发调试，此时就涉及到源码 和 aar 模式的切换。
+
+在多仓库场景下，每个组件都是一个独立的 Git 仓库。当 `useLocal = true` 时，通过 `includeBuild` 把本地组件仓库引入，并用 `dependencySubstitution` 把 Maven 坐标替换成本地项目。
+
+配置文件 `module-switch.json`:
+```json
+{
+  "modules": [
+    {
+      "name": "biz-library",
+      "localPath": "../SABiz",
+      "gav": "com.didiglobal:sa-biz:1.0.0",
+      "useLocal": true
+    },
+    {
+      "name": "network-library", 
+      "localPath": "../NetworkLib",
+      "gav": "com.didiglobal:network:2.0.0",
+      "useLocal": false
+    }
+  ]
+}
+```
+- `name`：本地项目名称（即 `includeBuild` 内部的子项目名，通常是 `:library` 或 `:biz-library`）
+- `localPath`：相对壳工程的路径
+- `gav`：完整的 Maven 坐标（`groupId:artifactId:version`）
+- `useLocal`：`true` 切源码，`false` 用 AAR
+
+```groovy
+// settings.gradle
+import groovy.json.JsonSlurper
+
+// 1. 读取配置文件
+def configFile = file('module-switch.json')
+if (!configFile.exists()) {
+    println "module-switch.json not found, all modules use remote AAR."
+    return
+}
+
+def config = new JsonSlurper().parse(configFile)
+def modules = config.modules ?: []
+
+// 2. 遍历处理
+modules.each { module ->
+    def useLocal = module.useLocal as boolean
+    def localPath = module.localPath as String
+    def gav = module.gav as String
+    def name = module.name as String
+
+    if (useLocal && localPath) {
+        // 关键：用 includeBuild 引入本地仓库，并做坐标替换
+        includeBuild(localPath) {
+            dependencySubstitution {
+                substitute(module(gav)).using(project(":$name"))
+            }
+        }
+        println "✅ $name -> 使用本地源码 ($localPath)"
+    } else {
+        println "📦 $name -> 使用远程 AAR ($gav)"
+    }
+}
+```
+
+# 多渠道打包
+
+多渠道打包（Multi-channel Packaging）是指为同一个应用生成多个不同的安装包，每个安装包可以包含不同的配置、资源或元数据。
+
+## 为什么需要多渠道打包
+
+1. 数据统计：根据渠道区分来源，统计各渠道的下载量以及覆盖率。
+2. 精细化运营：根据数据分析来做营销和推广，提升应用的曝光和转化。
+3. 厂商适配：适配不同厂商的系统 API 以及合规要求等。
+## buildTypes
+
+buildTypes 是`构建类型`，用来定义构建类型配置，比如是否开启代码混淆、是否开启调试模式等，通常包含 debug 和 release 两种类型。
+
+在多渠道配置中，构建类型与产品变种(productFlavors)一起使用，可以形成不同组合的构建变体(Variants)。
+##  productFlavors 
+
+`productFlavors`中文翻译过来是`产品变种`，用来定义不同变种的包，每个风格可以有不同的配置和资源。
+
+defaultConfig {}中的配置为应用默认配置，都可以在渠道配置 productFlavors {} 中进行覆写或追加。
+
+flavorDimensions 表示产品变种的`维度`(Dimensions)，是「组」的概念，这里定义的是「version」，名字可以自定义，也可以有多个。每个维度可以包含一个或多个产品变种，同一个维度即为一个产品变种组，Dimensions 就是用来将某个产品变种归类到特定维度中。**每个维度中的产品变种可以相互组合，生成不同的构建变体。**
+
+```kotlin
+android {
+    namespace = "com.xx.xx"
+    compileSdk = 33
+
+    defaultConfig {
+        applicationId = "xx.xx.xx"
+    }
+
+    // 多渠道打包配置
+    flavorDimensions += listOf("version, environment")
+    productFlavors {
+        create("huawei") {
+            dimension = "version"
+            applicationIdSuffix = ".huawei"
+            versionNameSuffix = "-huawei"
+            versionCode = 1
+            buildConfigField("int", "CHANNEL_CODE", "1001")
+        }
+        create("oppo") {
+            dimension = "environment"
+            applicationIdSuffix = ".oppo"
+            versionNameSuffix = "-oppo"
+            versionCode = 1
+            buildConfigField("int", "CHANNEL_CODE", "1002")
+        }
+    }
+```
+
+## 多渠道依赖方式
+
+- 默认依赖：implementation、api
+- 变体依赖：变体+Implementation，如 huaweiImplementation
+- 构建类型：类型+Implementation，如 debugImplementation
+- 构建变体：变体+类型+Implementation，如 huaweiDebugImplementation
+
+## 渠道资源
+
+如果存在一个 huawei 渠道的变体，想配置该渠道特殊资源，则执行如下操作，这样，在构建 huawei 渠道变体的时候，Gradle 会根据构建变体来找对应的目录文件。
+
+在app/src/目录下新建 huawei 文件夹，在 huawei 文件夹下再新增 res 文件夹。
+
+- 在 res 文件夹下新增 mipmap 文件夹(mipmap-xxhdpi)，并放置华为版的应用图标 ic_launcher。
+- 在 res 文件夹下新增 values 文件夹，values 文件夹下新建 strings.xml 文件，并配置华为版的应用名称。
+
+```text
+app/
+└── src/
+    ├── huawei/
+    │   ├── res/
+    │   │   ├── mipmap-xxhdpi/
+    │   │   │   └── ic_launcher.png
+    │   │   └── values/
+    │   │       └── strings.xml
+    └── main/
+        └── res/
+            ├── mipmap-xxhdpi/
+            │   └── ic_launcher.png
+            └── values/
+                └── strings.xml
+
+```
+
+**合并规则**
+
+- 渠道构建时，渠道变体(huawei)会跟主变体(main)目录下的资源进行合并。
+- 如有同名配置资源，例如 strings.xml 文件中的 app_name，则优先取渠道(huawei)配置资源进行覆盖，其他不同名的则进行合并。
+- layout 文件、assets 文件则是替换，渠道资源(huawei)优先于主变体(main)资源。
+
+## 渠道代码
+
+代码文件是不支持合并的，也不支持同名。main 作为主变体，渠道可以引用 main 中的代码类，main 也可以引用渠道中的代码类，但是当渠道变换时，main 则会出现找不到之前渠道代码类的异常，因为渠道中的代码为该渠道专属，只有在该渠道编译时才会与主变体 main 中的代码进行融合。**如果想要多渠道代码融合，则需要使用 SourceSets。**
+
+## SourceSets 
+
+`sourceSets` 的本质是**多层级的目录合并**，遵循 **“Build Type > Flavor > Main”** 的优先级进行合并。
+
+- **Main (`src/main`)**：基础配置。
+- **Flavor (`src/oppo`)**：覆盖或增量补充 Main。
+- **Build Type (`src/debug`)**：最高优先级，覆盖前两者。
+
+Gradle 默认会自动识别 `src/[flavorName]/java` 等目录，如果你的代码就在 `src/oppo/java`，不需要在 `sourceSets` 里写它，Gradle 会自动包含。
+
+- **`srcDirs("path")`**：**替换**当前 SourceSet 已有的路径列表。但由于 `oppo` 和 `main` 是两个独立的 SourceSet，`oppo` 的替换不会影响 `main`。
+- **`srcDir("path")`**：向当前 SourceSet **增量添加**一个路径。
+
+**清单文件是“合并”而非“叠加”**：每个 SourceSet 只能有一个 `manifest.srcFile`。
+
+示例
+```groovy
+android {
+    sourceSets {
+        // 以特定的 flavor（如 oppo）或 main 为例
+        oppo {
+            // 1. Java/Kotlin 代码目录 (复用其他渠道代码)
+            java.srcDirs = ['src/oppo/java', 'src/huawei/java']
+            kotlin.srcDirs = ['src/oppo/kotlin', 'src/huawei/kotlin']
+            // 2. 资源文件目录 (多目录合并，常用于资源拆分)
+            res.srcDirs = ['src/oppo/res', 'src/common/res']
+            // 3. 资产目录 (如预置数据库、字体、离线包)
+            assets.srcDirs = ['src/oppo/assets']
+            // 4. 预编译库目录 (存放 .so 文件)
+            jniLibs.srcDirs = ['libs'] 
+            // 5. 清单文件 (注意：这是 srcFile，不是 srcDirs，只能指定一个)
+            manifest.srcFile 'src/oppo/AndroidManifest.xml'
+            // 6. AIDL 接口定义目录
+            aidl.srcDirs = ['src/oppo/aidl']
+        }
+    }
+}
+```
+
+## 渠道统计
+
+### meta-data
+
+meta-data 标签通常在 AndroidManifest.xml 文件中使用，通过键值对的方式为组件提供附加配置信息。
+
+```xml
+<application ...>
+    <meta-data android:name="UMENG_CHANNEL" android:value="${UMENG_CHANNEL_NAME}"/>
+    ...
+</application>
+```
+
+通过 `manifestPlaceholders` 来替换 AndroidManifest.xml 文件中 `value` 的值，UMENG_CHANNEL_NAME 要对应上。在代码中则通过 PackageManager 获取并读取 meta-data 信息。
+```groovy
+    productFlavors {
+        create("huawei") {
+            manifestPlaceholders["UMENG_CHANNEL_NAME"] = "huawei"
+        }
+        create("oppo") {
+            manifestPlaceholders["UMENG_CHANNEL_NAME"] = "oppo"
+        }
+    }
+```
+
+### BuildConfig
+
+BuildConfig 通常用来存储一些常量信息，比如版本号，或者在 buildTypes 中根据构建环境来定义接口请求的域名地址等，BuildConfig 会在编译时生成 class 文件。
+
+BuildConfig文件的位置在`<project-root>/app/build/generated/source/buildConfig/<variant-name>/<package-name>/BuildConfig.java`。
+
+在 Gradle8.+ 版本中，需要开启 BuildConfig 功能：
+```groovy
+android {
+	buildFeatures {
+		buildConfig = true
+	}
+}
+```
+
+buildConfigField 参数格式：
+
+fun buildConfigField(type: String, name: String, value: String);
+
+type 为数据格式，name 为 key，value 为值，在 build.gradle 中使用。
+
+配置完之后，重新 Sync 就会生成对应的常量了。
+
+## ABI 分包
+
+`ABI`全称为 Application Binary Interface，即应用二进制接口，是应用程序和操作系统在二进制级别交互的一种接口标准。不同的 Android 设备使用不同的 CPU，而不同的 CPU 支持不同的指令集。
+
+在 Android 生态系统中，x86 架构(Intel)的非常少见，常用于模拟器或是早期的“古董”设备，主流架构是`ARM`。而在 ARM 架构中，又以 64 位架构(arm64-v8a)为主流。
+
+![[ABI CPU.png]]
+
+分包是指由传统的构建一个 APK 文件变为根据架构来构建出多个 APK 文件，通常是 arm64-v8a 的64 位包、armeabi-v7a 的 32 位包、以及 arm64-v8a 加 armeabi-v7a 的**合包**(整包) 。
+
+分包有如下优点：
+
+- 减少 APK 大小：每个分包的 APK 只包含对应 ABI 的共享库(.so文件)，减少了APK的大小。
+- 提高安装速度：用户设备只会下载和安装与其架构匹配的 APK，可以提高下载和安装的速度，并节省下载资源。
+- 提升性能：64 位架构相比于 32 位架构，在运算能力和执行速度上有显著提升。
+
+splits 是分裂/分开的意思，支持**屏幕密度(Density)** 和 **应用二进制接口(ABI)** 两种方式构建多个 APK。
+
+```groovy
+android {
+    // ABI 分包
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = true
+        }
+    }
+}
+```
+
+`abi{}`闭包中的属性配置介绍：
+
+- isEnable，是否开启 ABI 分包，true表 示开启，默认关。
+- reset()，清除默认的 ABI 列表，要与 include 属性结合使用，毕竟不能没有 ABI 配置，清除了要再添加。
+- include()，指定生成哪些 APK 的 ABI 列表，多个由逗号分割。
+- isUniversalApk，除了按照 include 配置的 ABI 列表生成多个 APK 之外，是否生成一个包含所有 ABI 列表的合包，true 表示开启，默认关。
+
+在使用`splits`来配置 `abi { }`时，需要注释或移除 defaultConfig{ } 中的 ndk { } 配置，否则会有冲突。
+
+# 依赖版本管理
+
+版本管理(Version Management)是指在开发过程中对项目依赖的各个库、框架、插件等版本进行管理和控制，确保项目中的所有组件以正确的版本组合在一起运行，以避免兼容性问题、漏洞和其他潜在问题。对于一个复杂的项目来说，良好的版本管理是至关重要的，它能显著提高项目的可维护性和稳定性。
+
+## 直接指定版本号
+
+在`dependencies{ }`中声明并直接写具体的版本号。这种方式简单直观，但随着项目的依赖变多时，版本管理分散，升级版本也会比较繁琐，维护成本较高。
+
+## 变量占位符
+
+把版本号抽出来统一管理，即`val room_version = "2.6.1"`，使用 $ 引用。
+
+```kotlin
+dependencies {
+    val room_version = "2.6.1"
+
+    implementation("androidx.room:room-runtime:$room_version")
+    annotationProcessor("androidx.room:room-compiler:$room_version")
+
+    // To use Kotlin annotation processing tool (kapt)
+    kapt("androidx.room:room-compiler:$room_version")
+    // To use Kotlin Symbol Processing (KSP)
+    ksp("androidx.room:room-compiler:$room_version")
+}
+```
+
+## ext
+
+`ext`全称Extra Properties Extension，是额外扩展属性的意思，以键值对的形式进行存储。
+
+## version catalogs
+
+`Version Catalogs`全称是version catalog libs，中文是「版本目录」的意思，是`Gradle 7.0`引入的一项新特性，允许你在一个集中式文件中管理所有依赖版本和插件版本。
+
+version catalogs 支持两种使用方式，一种是在 settings.gradle(.kts) 文件中声明，另一种是在单独的 libs.versions.toml 文件中声明，这种更解耦一些，推荐使用。
+
+在根项目的 gradle 文件夹中，创建一个名为 `libs.versions.toml`的文件。Gradle 默认会在 libs.versions.toml 文件中查找目录，因此建议使用此默认名称，这个叫`约定大于协议`。
+
+在 libs.versions.toml 文件中，添加以下配置：
+
+```toml
+[versions]
+agp = "7.5.0"
+coreKtx = "1.10.1"
+junit = "4.13.2"
+# ... 等等
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+```
+
+**`[versions]` 定义版本号常量，供其他部分引用。**
+
+ >这里定义了**版本号的别名**(如 `agp`、`coreKtx`)，右侧是具体的版本字符串。
+   这些别名可以被 `[libraries]` 和 `[plugins]` 中的 `version.ref` 引用。
+   版本号可以是任何字符串，但必须是 Maven 仓库中存在的有效版本。
+   
+**常见陷阱**：版本号前后不能有空格，否则 Gradle 会解析失败(例如 `agp = " 7.5.0"` 是错的)。
+ 
+**`[libraries]` 定义依赖库的坐标(group + name + version)，供 `dependencies {}` 块使用。**
+
+- `group`：Maven 的 groupId（如 `androidx.core`）
+- `name`：Maven 的 artifactId（如 `core-ktx`）
+- `version.ref`：引用 `[versions]` 中定义的版本别名（如 `coreKtx`）
+
+**使用方式：**
+在 `build.gradle` 的 `dependencies {}` 中写 `implementation libs.androidx.core.ktx`。
+
+别名中的短横线 `-` 会转换为点号 `.` 访问，所以 `androidx-core-ktx` 变成 `libs.androidx.core.ktx`。
+
+**`[plugins]` 定义插件的坐标（id + version），供 `plugins {}` 块使用。**
+
+- `id`：插件的唯一 ID（如 `com.android.application`）
+- `version.ref`：引用 `[versions]` 中定义的版本别名（如 `agp`）
+
+**使用方式**：
+在 `build.gradle` 的 `plugins {}` 块中写 `alias(libs.plugins.android.application)`)
+
+# 为什么 Gradle 7.0+ 需要 Java 11，而且国内大部分项目不是 Java8 就是 Java 11，为什么其它版本不常用
+
+## 1. 为什么 Gradle 7.0+ (尤其是 AGP 7.0+) 强制要求 Java 11？
+
+这并非 Gradle 单方面的“任性”，而是 **Android Gradle Plugin (AGP) 7.0** 的一次重大架构升级导致的，主要原因有两点：
+
+*   **构建工具自身的进化**：
+    Gradle 和 AGP 本身也是用 Java 编写的程序。为了提升构建速度、利用更高效的内存管理（如 ZGC）和新的语言特性（如 `var`、模块化系统），AGP 开发团队决定在 7.0 版本将**运行环境**的最低要求提升到 Java 11。这就像你的 APP 升级了最低 Android 版本以使用新 API 一样，构建工具也需要升级底座。
+*   **统一开发环境**：
+    在 AGP 7.0 之前，开发者经常混淆“编译代码用的 JDK”和“运行 Gradle 用的 JDK”。从 Android Studio Arctic Fox (2020.3.1) 开始，Google 直接在 IDE 中捆绑了 JDK 11，并将 AGP 7.0 默认配置为使用该 JDK 运行，以减少环境配置错误。
+
+**关键区分：** 这里指的是**运行 Gradle 构建工具**需要 Java 11，而不是说你的 APP 代码必须写成 Java 11。你仍然可以在 Java 11 的环境下编译 Java 8 的代码（通过 `sourceCompatibility = JavaVersion.VERSION_1_8`）。
+```gradle
+android { 
+ compileOptions { 
+   // 告诉编译器：虽然你很强，但请把代码处理成 Java 8 的样子 
+   sourceCompatibility JavaVersion.VERSION_1_8 
+   targetCompatibility JavaVersion.VERSION_1_8 
+  } 
+ kotlinOptions { 
+   jvmTarget = '1.8' 
+  } 
+}
+```
+
+## 2. 为什么国内项目大多是 Java 8 或 Java 11，其他版本很少？
+
+这主要由 **LTS(长期支持版)策略** 和 **Android 系统限制** 共同决定：
+
+1.  **LTS 的统治力**：
+    企业级开发极其看重稳定性。
+    *   **Java 8 (2014)**：是目前存量最大的版本，生态最完善，许多老旧的银行、国企项目不敢轻易迁移。
+    *   **Java 11 (2018)**：是 Java 8 之后的第一个 LTS 版本，是目前新项目的首选标准。
+    *   **Java 17(2021) & 21 (2023)**：虽然也是 LTS，但国内迁移速度较慢，通常只有大厂的基建部门或追求极致性能的新项目（如使用 Spring Boot 3）才会跟进。
+2.  **Android 的特殊性（Desugaring）**：
+    Android 系统并不直接运行 Java 字节码，而是运行 Dex 字节码。Android 设备上的虚拟机（ART/Dalvik）对新版 Java 语法的支持是滞后的。
+    
+    虽然 AGP 提供了“脱糖”（Desugaring）功能，让旧手机也能运行新 Java 语法，但这种支持是有限的。Java 8 的特性支持最完美，Java 11 次之，更高版本的特性在 Android 上往往难以完全发挥，甚至导致兼容性崩溃。
+
+## 3. 为什么用了 Java 21 等新版本就会报错？
+
+这是因为**Gradle 版本过低，无法“认识”新版 JDK 产生的字节码格式**。
+
+核心原因：Class File Version 冲突
+Java 的每个版本都有对应的类文件版本号（Class File Major Version）。
+*   Java 8 = 52
+*   Java 11 = 55
+*   Java 17 = 61
+*   **Java 21 = 65**
+
+当你用 JDK 21 运行一个老版本的 Gradle（比如 Gradle 7.4）时，Gradle 的守护进程（Daemon）会尝试读取 JDK 21 的信息。但 Gradle 7.4 发布时，Java 21 还没出生，Gradle 内部的代码检查到版本号 `65` 时，发现自己不认识，就会直接抛出 `Unsupported class file major version 65` 错误。
+
+Gradle 与 Java 版本的兼容性矩阵
+
+要使用新版 Java，必须升级 Gradle。以下是关键节点的对照表：
+
+| Java 版本     | 要求的最低 Gradle 版本 | 备注                  |
+| :---------- | :-------------- | :------------------ |
+| **Java 8**  | Gradle 2.0+     | 经典组合                |
+| **Java 11** | Gradle 5.0+     | AGP 7.0+ 的强制要求      |
+| **Java 17** | **Gradle 7.3+** | Spring Boot 3 的最低要求 |
+| **Java 21** | **Gradle 8.5+** | 2026年很多新框架的标准       |
+
+**结论：**
+如果你想在项目中使用 **Java 21**，你必须将 `gradle-wrapper.properties` 中的 Gradle 版本升级到 **8.5** 或更高。如果你还在用 Gradle 7.x 或 8.0，它根本无法理解 Java 21 的环境，自然会报错。
+
+## 总结建议
+
+1.  **对于老项目**：保持 **AGP 7.x + Gradle 7.5 + JDK 11** 是最稳妥的“养老”配置，兼容性最好。
+2.  **对于新项目**：推荐直接上 **AGP 8.x + Gradle 8.7+ + JDK 17/21**，以享受构建速度提升。
+
+# Android Studio 版本、AGP、Gradle、JDK 这四个版本的关联关系如何记忆
+
+**Android Studio** (限制) ➔ **AGP** (依赖) ➔ **Gradle** (依赖) ➔ **JDK**
+
+1. **AS 决定 AGP**：
+    - 你装了**最新版 Android Studio**（包工头），它就强制要求你用**较新的 AGP**（图纸）。
+    - 比如：AS 2025 强行要求 AGP 4.0+。
+2. **AGP 决定 Gradle**：
+    - 你升级了 **AGP**（图纸），图纸上写着“需要高级工艺”，所以必须升级 **Gradle**（工人）。
+    - 比如：AGP 4.0 强行要求 Gradle 6.1+。
+3. **Gradle 决定 JDK**：
+    - 你升级了 **Gradle**（工人），新工人的身体构造变了，必须运行在 **新版 JDK**（环境）上。
+    - 比如：Gradle 8.0+ 强行要求 JDK 17+ 才能跑起来。
