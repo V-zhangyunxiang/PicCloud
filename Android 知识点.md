@@ -1064,11 +1064,11 @@ class MainActivity : AppCompatActivity() {
 
 适配工作主要分为“编译对齐”和“代码逻辑修正”两个部分：
 
-1.升级构建环境与工具链
+**1.升级构建环境与工具链**
    1. **Android Gradle 插件 (AGP)**：建议升级至 **8.5.1 或更高版本**。
    2. **NDK 版本**：建议升级至 **r27 或更高版本**。新版 NDK 默认支持 16KB 对齐，能大幅简化配置工作。
 
-2.修改编译配置（针对自己的代码）
+**2.修改编译配置（针对自己的代码）**
 
 你需要告诉链接器（Linker）使用 16KB 的最大页面大小。
 
@@ -1082,7 +1082,7 @@ set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,max-page-size
 LOCAL_LDFLAGS += -Wl,-z,max-page-size=16384
 ```
 
-3.修正 Native 代码中的硬编码假设
+**3.修正 Native 代码中的硬编码假设**
 
 检查 C/C++ 源码中是否存在对页面大小为 `4096` 的硬编码。
 
@@ -1095,7 +1095,7 @@ long pageSize = sysconf(_SC_PAGESIZE);
 int pageSize = getpagesize();
 ```
  
- 4.更新第三方 SDK
+ **4.更新第三方 SDK**
 
 这是最难控制的一环。你需要检查项目中所有的第三方 `.so` 库。如果它们未进行 16KB 对齐，应用在 16KB 模式下会报 `dlopen failed` 错误。
 
@@ -1118,10 +1118,12 @@ int pageSize = getpagesize();
 
 如果你的老项目仍在使用 `android.support`，迁移过程虽然涉及面广，但 Google 提供了非常完善的自动化工具。请按照以下 4 个核心步骤进行适配：
 
-1.升级编译版本 (前提准备)
+**1.升级编译版本 (前提准备)**
+
 在迁移之前，必须确保你的项目编译目标版本足够高。打开项目底层的 `build.gradle` 文件，将 `compileSdkVersion`（或现代 AGP 中的 `compileSdk`）修改为 **28 或更高版本**（建议直接升级到当前最新的稳定版本，如 34 或 35），因为 AndroidX 的底层二进制文件是与 Support 28.0.0 对齐的。
 
-2.修改 gradle.properties 开启 AndroidX
+**2.修改 gradle.properties 开启 AndroidX**
+
 在项目的根目录下找到 `gradle.properties` 文件，添加以下两行极其关键的配置：
 ```properties
 # 强制要求项目使用 AndroidX 相关的包，而非 Support 包
@@ -1132,7 +1134,8 @@ android.useAndroidX=true
 android.enableJetifier=true
 ```
 
-3.使用 Android Studio 一键迁移
+**3.使用 Android Studio 一键迁移**
+
 Android Studio 提供了官方的自动化重构工具，可以帮你完成 90% 以上的迁移工作：
 1. 在 Android Studio 的顶部菜单栏中，依次点击 **`Refactor`** -> **`Migrate to AndroidX...`**。
 2. 此时 IDE 会弹出一个提示框，强烈建议你勾选“备份项目为 Zip 文件”（以防迁移失败代码混乱）。
@@ -1186,7 +1189,7 @@ OkHttp 使用责任链模式来组织拦截器，使得每个拦截器都能有�
 
 1. 防止内存泄露
 
-    原因是长生命周期对象持有短生命周期对象。常见场景有:
+   **根本原因是长生命周期对象持有短生命周期对象**。常见场景有:
 
 - 长生命周期对象(单例、静态变量)严禁持有 Activity Context，统一使用 `ApplicationContext`。
 - 非静态内部类/匿名内部类默认持有外部类引用，需改为**静态内部类 + 弱引用**。
@@ -1208,7 +1211,7 @@ OkHttp 使用责任链模式来组织拦截器，使得每个拦截器都能有�
 
   2.2 严禁在 **`onDraw` 或循环**中创建临时对象，避免内存抖动。
 
-### 布局+绘制
+### 布局 + 绘制
 
   *   减少布局层级，如 **`ConstraintLayout`** 约束布局。
   *   使用 &lt;include/&gt; + &lt;merge/&gt; 标签复用公共布局**消除冗余的父容器**。
@@ -1222,16 +1225,15 @@ OkHttp 使用责任链模式来组织拦截器，使得每个拦截器都能有�
 
 - 将非必须在主线程执行的 SDK 初始化通过**线程池**异步加载。
 - 利用 **`IdleHandler`**。当主线程空闲时再去执行一些次要的初始化任务。
-- 减少应用启动时的依赖项数量。
+- 减少应用启动时的任务数量。
 
 ### 包体积
 
 - 开启 `minifyEnabled`(代码混淆、压缩、优化) + `shrinkResources`(移除未引用资源)。
    > **`shrinkResources` 会移除未引用的资源文件，并对 `values/` 下的冗余键值对进行合并与占位符优化。**
-- 图片统一使用 Webp 格式。
+- 图片统一使用 Webp 格式，本地图片网络化。
 - 只保留 `xxhdpi` 或 `xxxhdpi`目录的资源。
-- ABI 只保留 **`arm64-v8a`**。
-- so 动态下发。
+- 只保留 **`arm64-v8a`** abi 架构，动态下发 so。
 
 ## 事件分发机制
 
