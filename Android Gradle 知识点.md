@@ -1658,33 +1658,37 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 ```
+### `[versions]` 
 
-**`[versions]` 定义版本号常量，供其他部分引用。**
+定义版本号常量，供其他部分引用。
 
- >这里定义了**版本号的别名**(如 `agp`、`coreKtx`)，右侧是具体的版本字符串。
-   这些别名可以被 `[libraries]` 和 `[plugins]` 中的 `version.ref` 引用。
-   版本号可以是任何字符串，但必须是 Maven 仓库中存在的有效版本。
+ - 这里定义了**版本号的别名**(如 `agp`、`coreKtx`)，右侧是具体的版本字符串。
+ -  这些别名可以被 `[libraries]` 和 `[plugins]` 中的 `version.ref` 引用。
+ - 版本号可以是任何字符串，但必须是 Maven 仓库中存在的有效版本。
    
-**常见陷阱**：版本号前后不能有空格，否则 Gradle 会解析失败(例如 `agp = " 7.5.0"` 是错的)。
+> **常见陷阱**：版本号前后不能有空格，否则 Gradle 会解析失败(例如 `agp = " 7.5.0"` 是错的)。
  
-**`[libraries]` 定义依赖库的坐标(group + name + version)，供 `dependencies {}` 块使用。**
+### `[libraries]` 
+
+定义依赖库的坐标(group + name + version)，供 `dependencies {}` 块使用。
 
 - `group`：Maven 的 groupId（如 `androidx.core`）
 - `name`：Maven 的 artifactId（如 `core-ktx`）
 - `version.ref`：引用 `[versions]` 中定义的版本别名（如 `coreKtx`）
 
-**使用方式：**
-在 `build.gradle` 的 `dependencies {}` 中写 `implementation libs.androidx.core.ktx`。
+>**使用方式：**
+>- 在 `build.gradle` 的 `dependencies {}` 中写 `implementation libs.androidx.core.ktx`。
+>- 别名中的短横线 `-` 会转换为点号 `.` 访问，所以 `androidx-core-ktx` 变成 `libs.androidx.core.ktx`。
 
-别名中的短横线 `-` 会转换为点号 `.` 访问，所以 `androidx-core-ktx` 变成 `libs.androidx.core.ktx`。
+### `[plugins]` 
 
-**`[plugins]` 定义插件的坐标（id + version），供 `plugins {}` 块使用。**
+定义插件的坐标（id + version），供 `plugins {}` 块使用。
 
 - `id`：插件的唯一 ID（如 `com.android.application`）
 - `version.ref`：引用 `[versions]` 中定义的版本别名（如 `agp`）
 
-**使用方式**：
-在 `build.gradle` 的 `plugins {}` 块中写 `alias(libs.plugins.android.application)`)
+> **使用方式**：
+> - 在 `build.gradle` 的 `plugins {}` 块中写 `alias(libs.plugins.android.application)`)
 
 # 为什么 Gradle 7.0+ 需要 Java 11，而且国内大部分项目不是 Java8 就是 Java 11，为什么其它版本不常用
 
