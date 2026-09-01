@@ -141,15 +141,16 @@ val params = BizLoader.biz.getParams()
 
 ## 依赖注入(DI)
 
-**依赖注入（DI）就是解决这类“接口与实现分离，并自动注入实例”场景的标准方案**。DI 框架（如 Hilt/Dagger）可以帮你**自动完成“注册”和“获取”这两个动作**，避免手动写工厂或利用 ContentProvider。
+**依赖注入就是解决这类“接口与实现分离，并自动注入实例”场景的标准方案**。DI 框架(如 Hilt/Dagger)可以帮你**自动完成“注册”和“获取”这两个动作**，避免手动写工厂或利用 ContentProvider。
 
 核心流程：
 1. **在 `common` 模块中**定义接口 `IBiz`。
 2. **B 模块**依赖 `common`，提供 `IBiz` 的实现类 `IBizImpl`，并通过 DI 注解声明“这个实现需要被注入”。
-3. **A 模块**依赖 `common`（也可能同时依赖 B，取决于你的 DI 方案），在需要的地方通过 `@Inject` 声明 `IBiz` 字段，DI 框架会自动将 `IBizImpl` 的单例注入进来。
+3. **A 模块**依赖 `common`(也可能同时依赖 B，取决于你的 DI 方案)，在需要的地方通过 `@Inject` 声明 `IBiz` 字段，DI 框架会自动将 `IBizImpl` 的单例注入进来。
+
 这样，**A 模块无需知道 `IBizImpl` 的存在**，只需依赖 `IBiz` 接口，完全符合依赖倒置原则。
 
-具体实现（以 Hilt 为例）
+具体实现(以 Hilt 为例)
 
 **1.在 `common` 模块定义接口**
 ```kotlin
@@ -160,7 +161,7 @@ interface IBiz {
 
 **2.B 模块提供实现并暴露注入规则**
 
-B 模块需要添加 Hilt 依赖，并通过 `@Module` + `@Provides`（或 `@Binds`）声明如何提供 `IBiz` 实例。
+B 模块需要添加 Hilt 依赖，并通过 `@Module` + `@Provides` / `@Binds`声明如何提供 `IBiz` 实例。
 
 使用 @Binds（更简洁，适用于实现类可被 DI 管理的情况）：
 ```kotlin
@@ -181,7 +182,7 @@ abstract class BizModule {
 
 **3.A 模块中注入使用**
 
-A 模块只需依赖 `common`（并集成 Hilt），直接 `@Inject` 字段即可：
+A 模块只需依赖 `common` (并集成 Hilt)，直接 `@Inject` 字段即可：
 
 ```kotlin
 @AndroidEntryPoint
@@ -194,54 +195,79 @@ class SomeActivity : AppCompatActivity() {
     }
 }
 ```
-**关键点**：A 模块**完全不需要依赖 B 模块**，也不需要知道 `IBizImpl`。但有一个前提：**整个编译时，所有使用了 `@Module` 的模块都需要被 DI 容器感知到**。在 Hilt 中，这通常通过 **多模块 + `@InstallIn`** 自动发现机制实现，无需手工注册。
+**关键点**：A 模块**完全不需要依赖 B 模块**，也不需要知道 `IBizImpl`。但有一个前提：**整个编译时，所有使用了 `@Module` 的模块都需要被 DI 容器感知到**。
 
 ## Hilt 使用手册
 
- 1.`@Module`
+### 什么是 Hilt
 
-- 表明这是一个 **Hilt 模块**，用来提供依赖对象的构建方式或绑定关系。
+Hilt 是 Google 基于 Dagger 开发的依赖注入框架，专为 Android 应用设计，简化了在 Android 组件(如Activity、ViewModel、Fragment)中实现依赖注入的流程，减少模板代码。
+
+### Hilt 注解有哪些，作用是什么
+
+ **@Module**
+
+- 表明这是一个 **Hilt 模块**，用来**提供依赖对象的构建方式**。
 - Hilt 会在编译时扫描所有 `@Module` 注解的类，并从中收集“如何创建对象”的规则。
 
-2.`@InstallIn(SingletonComponent::class)`
+**@InstallIn**
 
-- 指定这个模块**安装到哪个容器/作用域**中。
-- `SingletonComponent` 是 Hilt 中最顶层的组件，它的生命周期跟随整个 **Application**。
-- 这意味着该模块提供的所有绑定，在 App 存活期间只会存在一份，并且可以在任何需要单例的地方被注入。
+- 指定这个模块**安装到哪个容器或作用域**中，如 ActivityComponent、SingletonComponent。
 
-3.`abstract class BizModule`
+**@Provides**
 
-- 因为用了 `@Binds`，类必须是**抽象类**，Hilt 会生成实现代码，不需要你写具体方法体。
+在 @Module 中标记“提供依赖的方法”，告知 Hilt 如何创建某一类型的实例。
 
-4.`@Binds`
+**@Binds**
 
-- 这是核心：**接口绑定抽象方法**，专门用于将接口的实现类绑定到接口上。
+- 这是核心：**接口绑定抽象方法**，专门用于**将接口的实现类绑定到接口**上。因为包含抽象方法，其所在的类也必须是抽象类。
 - 它要求方法**只有一个参数**（这个参数是接口的实现类），返回值是接口类型。
 - 参数类型 `IBizImpl` 必须能被 Hilt 自动创建（例如它用 `@Inject constructor()` 声明了构造器），否则 Hilt 不知道如何实例化它。
 
-5.`@Singleton`
+**@Singleton**
 
 - 作用域注解，表示这个绑定提供的实例是**单例**。
-- 配合 `@InstallIn(SingletonComponent::class)`，确保整个 App 只有唯一的一个 `IBizImpl` 对象，并且由 Hilt 管理其生命周期。
+- 配合 `@InstallIn`，确保整个 App 只有唯一的一个 `IBizImpl` 对象，并且由 Hilt 管理其生命周期。
 
-6.`abstract fun bindBiz(impl: IBizImpl): IBiz`
+> **为什么示例中用的 `@Binds` 而不用 `@Provides`？**
+
+- `@Binds` 专门用于**接口和实现的绑定**，代码更简洁，**必须是抽象方法**。
+- `@Provides` 用于创建复杂对象(例如需要手动构造、调用建造者模式等），**写在具体方法中，返回值直接是对象。**
+
+**abstract fun bindBiz(impl: IBizImpl): IBiz**
 
 - 方法名可以随便取，Hilt 不看名字，只看参数和返回值类型。
 - 它定义了这样一个规则：**当注入 `IBiz` 类型时，用 `IBizImpl` 的实例来满足**。
 - 因为 `IBizImpl` 是具体的实现，所以 Hilt 能够创建它（前提是它有可注入的构造函数），然后把这个实例作为 `IBiz` 返回。
 
-为什么用 `@Binds` 而不用 `@Provides`？
+**@HiltAndroidApp**
 
-- `@Binds` 专门用于**接口和实现的绑定**，代码更简洁，必须是抽象方法。
-- `@Provides` 用于创建复杂对象（例如需要手动构造、调用建造者模式等），写在具体方法中，返回值直接是对象。
+标记 Application 类，触发 Hilt 的初始化流程。
 
-**Hilt 的核心依赖（`hilt-android`）必须通过 `common` 模块用 `api` 声明，而不能只放在 `app` 模块里。**  
+Hilt 会生成一个继承自 xxApplication 的代理类，负责创建和管理依赖注入容器，是整个应用依赖注入的入口。
 
-原因很简单：业务模块（B、C、D 等）需要使用 `@Inject`、`@Module`、`@InstallIn` 等 Hilt 注解和 API，只有把这些库暴露给它们，代码才能编译通过。
+**@Inject**
+
+标记“可被注入的构造函数”或“需要注入的字段”，告知 Hilt **该类的实例或字段**需要通过依赖注入创建。
+
+### Hilt 如何在 Android 项目中集成 
+
+ **1.添加插件**
+ 
+ 在项目的根 `build.gradle` 文件和 app 模块的 `build.gradle` 文件中，添加 Hilt 的 Gradle 插件。
+ 
+ >classpath "com.google.dagger:hilt-android-gradle-plugin:2.44"
+ >apply plugin: 'dagger.hilt.android.plugin'
+ 
+ **2.添加依赖**
+ 
+**Hilt 的核心依赖(`hilt-android`) 必须通过 `common` 模块用 `api` 声明，而不能只放在 `app` 模块里。**  
+
+原因很简单：业务模块(B、C、D 等)需要使用 `@Inject`、`@Module`、`@InstallIn` 等 Hilt 注解和 API，只有把这些库暴露给它们，代码才能编译通过。
 
 **Hilt 分为“运行库”和“注解处理器”两部分**，两者的放置策略不同。
 
-1.依赖传递：`hilt-android` 要放在 `common` 且使用 `api`
+**依赖传递：`hilt-android` 要放在 `common` 且使用 `api`**
 
 ```kotlin
 // common/build.gradle.kts
@@ -251,12 +277,9 @@ dependencies {
 }
 ```
 
-- 如果使用 `implementation`，Hilt 的类只对 `common` 模块内部可见，其他依赖 `common` 的模块看不到，会产生编译错误。
-- 一旦用 `api` 导出，任何依赖 `common` 的业务模块都可以直接使用 `@Inject` 等注解，无需重复声明 `hilt-android` 依赖。
+**注解处理器：每个用 Hilt 的模块都要自己加**
 
-2.注解处理器：每个用 Hilt 的模块都要自己加
-
-`hilt-compiler`（或 `hilt-android-compiler`）是编译时注解处理器，它不参与运行时，也不能通过 `api` 传递。**哪个模块写了 Hilt 注解（`@Module`、`@Inject constructor`、`@AndroidEntryPoint` 等），哪个模块就必须自己声明注解处理器依赖。**
+`hilt-android-compiler` 是编译时注解处理器，它不参与运行时，也不能通过 `api` 传递。**哪个模块写了 Hilt 注解，哪个模块就必须自己声明注解处理器依赖。**
 
 ```kotlin
 // 每个业务模块（如 B、C、D）的 build.gradle.kts
@@ -274,10 +297,105 @@ dependencies {
 }
 ```
 
-- **app 模块**同样需要加注解处理器，因为它有 `@HiltAndroidApp` 和可能的 `@AndroidEntryPoint`。
-- **common 模块本身**如果定义了 Hilt 相关的抽象（例如接口但无实现绑定），可能不需要处理器；但如果内部也写了 `@Module` 或 `@Inject`，同样需要加。
+> **app 模块**同样需要加注解处理器，因为它有 `@HiltAndroidApp` 和可能的 `@AndroidEntryPoint`。
+> 
+   **common 模块本身**如果定义了 Hilt 相关的抽象(例如接口但无实现绑定)，可能不需要处理器；但如果内部也写了 `@Module` 或 `@Inject`，同样需要加。
 
-# 多 Module 场景下，如何使用 DI 提供 API 方法
+3.**创建入口**
+
+创建一个继承自 `Application` 的类，并为其添加 `@HiltAndroidApp` 注解。这个注解会触发 Hilt 生成代码，创建整个应用的依赖容器。
+
+### 定义“配方”：告诉 Hilt 如何创建对象
+
+**方式一：直接使用 `@Inject` 注解构造函数**
+
+这是最直接的方式。在你自定义的类（如 `UserRepository`）的构造函数上添加 `@Inject` 注解，Hilt 就知道该如何创建它的实例了。
+
+```kotlin
+// 例子：UserRepository 类
+class UserRepository @Inject constructor(
+    private val apiService: ApiService // 它可能还依赖其他对象
+) { /* ... */ }
+```
+
+如果 `UserRepository` 还依赖 `ApiService`，只要 `ApiService` 的构造函数也有 `@Inject` 注解，Hilt 就会自动去解析并创建它，这个流程被称为**传递性依赖注入**。
+
+**方式二：使用 Hilt 模块 (`@Module`)**
+
+对于**接口（Interface）、第三方库类**（如 Retrofit、OkHttp）等无法直接修改构造函数的类，就需要使用 Hilt 模块来提供“配方”。
+
+- 创建一个用 `@Module` 和 `@InstallIn` 注解的类。
+    
+- 在类中，使用 `@Provides` 注解的方法来告诉 Hilt 如何创建该类型的实例。
+
+```kotlin
+// 例子：提供一个 AnalyticsService 的实例
+@Module
+@InstallIn(SingletonComponent::class)
+object AppModule {
+    @Provides
+    @Singleton
+    fun provideAnalyticsService(): AnalyticsService {
+        return AnalyticsService() // 或者更复杂的创建逻辑
+    }
+}
+```
+
+对通过 Hilt 模块来提供实例的方式，其方法返回的实例有几种使用场景。
+
+场景一：注入到其他类的构造函数(最常用)
+场景二：注入到 Activity / Fragment 的字段中
+场景三：在另一个 `@Provides` 方法中继续依赖它
+```kotlin
+//场景三示例
+@Module
+@InstallIn(SingletonComponent::class)
+object AppModule {
+    @Provides
+    @Singleton
+    fun provideAnalyticsService(): AnalyticsService {
+        return AnalyticsService()
+    }
+
+    @Provides
+    fun provideNetworkMonitor(analytics: AnalyticsService): NetworkMonitor {
+        // Hilt 会自动把上面的 AnalyticsService 实例传进来
+        return NetworkMonitor(analytics) 
+    }
+}
+```
+
+### 触发“生产”：让 Hilt 自动注入实例
+
+**方式一：构造函数注入**
+
+这是最推荐的方式。在你的类（如 `HomeViewModel`）的构造函数中，直接声明需要的依赖。Hilt 会自动在创建这个类时，提供所有依赖的实例。
+
+```kotlin
+@HiltViewModel
+class HomeViewModel @Inject constructor(
+    private val userRepository: UserRepository,
+    private val dispatcher: CoroutineDispatcher
+) : ViewModel() { /* ... */ }
+```
+
+**方式二：字段注入（Field Injection）**
+
+对于 `Activity` 或 `Fragment` 这类由 Android 系统创建、无法修改其构造函数的组件，使用字段注入。
+
+1. 用 `@AndroidEntryPoint` 注解该类，让 Hilt 能够介入其生命周期。
+    
+2. 在需要注入的字段（如 `analytics`）上添加 `@Inject` 和 `lateinit var` 注解。
+
+```kotlin
+@AndroidEntryPoint
+class HomeFragment : Fragment() {
+    @Inject lateinit var analytics: AnalyticsService
+    // ...
+}
+```
+
+### 多 Module 场景下，如何使用 DI 提供 API 方法
 
 当**多个模块都需要向 A 模块提供各自的功能方法**时，原则上每个提供能力的模块都需要：
 

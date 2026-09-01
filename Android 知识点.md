@@ -193,6 +193,57 @@ ANR 的本质是**主线程在规定时间内没有完成特定的任务**。
 2. **软件包可见性**：在 Android 11 及以上版本，必须在 `<queries>` 标签中声明**目标包名或Action**，否则无法检测到目标 App。
 3. **稳定性保护**：跨 App 调用极易因对方未安装或版本更迭导致崩溃，必须配合 `resolveActivity` 检查或 `try-catch ActivityNotFoundException`。
 
+## AppCompatActivity、FragmentActivity、ComponentActivity 区别和最新的变化
+
+| 特性       | `ComponentActivity`                             | `FragmentActivity`                      | `AppCompatActivity`                                |
+| -------- | ----------------------------------------------- | --------------------------------------- | -------------------------------------------------- |
+| **核心定位** | Jetpack 架构组件的基石                                 | 支持 `Fragment` 的 Activity                | 提供 Material Design 和向下兼容特性的 Activity               |
+| **主要功能** | 提供 `Lifecycle`、`ViewModel`、`SavedState` 等现代架构支持 | 包含 `FragmentManager`，管理 `Fragment` 生命周期 | 支持 `ActionBar`、`AppCompat` 主题、`Material Design` 组件 |
+| **继承关系** | 直接继承自 `Activity`                                | 继承自 `ComponentActivity`                 | 继承自 `FragmentActivity`                             |
+| **适用场景** | **Jetpack Compose 项目** 的首选                      | 需要**使用 `Fragment`** 的 View 系统项目         | **绝大多数传统 View 系统项目**的默认选择                          |
+
+### 该如何选择？
+
+- **选 `ComponentActivity`，如果...**
+    
+    - 你的项目是一个**纯 Jetpack Compose** 项目。它是为 Compose 设计的轻量级基础，没有任何传统 View 系统的负担。
+        
+- **选 `AppCompatActivity`，如果...**
+    
+    - 你的项目是基于**传统 XML 布局的 View 系统**。这是绝大多数现有项目和传统开发模式的标准选择，它能保证你的应用在不同 Android 版本上拥有一致的 Material Design 外观和体验。
+        
+- **`FragmentActivity` 还用吗？**
+    
+    - **通常不需要直接使用**。在绝大多数情况下，`AppCompatActivity` 已经继承自 `FragmentActivity`，功能上完全覆盖。除非你有极其特殊的理由，否则直接用 `AppCompatActivity` 或 `ComponentActivity` 即可。
+
+## Android 版本迭代对于 Activity 的更新和变化有哪些？
+
+**1. 生命周期优化（Android 12 核心变化）**
+
+> - **根 Activity 返回不再销毁**：点击返回键从桌面返回时，根Activity（Launcher Activity）不再执行`onDestroy()`，只执行到`onStop()`。
+>     
+> - **效果**：再次打开变为“热启动”，速度更快；`ViewModel`中的数据得以保留。
+>     
+> - **开发要求**：不要重写`onBackPressed()`并手动调用`finish()`，应使用`OnBackPressedCallback`。
+
+**2. 返回导航重构（Android 13+ 重大变更）**
+
+> - **`onBackPressed()`废弃**：Android 13 起，返回事件处理转为“预先处理”模型。
+>     
+> - **新方案**：使用`OnBackPressedCallback`(AndroidX)处理返回逻辑。
+>     
+> - **原因**：更好地支持手势导航，提供更一致的返回体验。
+
+**3. 启动管控与适配（Android 10 ~ 14）**
+
+> - **后台启动限制（Android 10）**：应用在后台不能随意启动 Activity，必须由用户交互直接触发。
+>     
+> - **架构拆分（Android 10）**：`ActivityTaskManagerService`(ATMS) 从`ActivityManagerService`中拆分出来，独立管理 Activity 和 Task。
+>
+> - **强制声明`android:exported`（Android 12）**：任何带`<intent-filter>`的 Activity 必须显式声明`exported`属性，否则无法安装。
+> 
+> - **隐式 Intent 限制（Android 14）**：隐式 Intent 只能启动已导出的组件，启动未导出的 Activity 必须使用显式 Intent。
+
 ## Service 的生命周期
 
 **startService:** onCreate -> onStartCommand -> onDestroy
@@ -247,9 +298,156 @@ Service 默认运行在应用的主线程中，因此**不能直接在其中执�
 
 如果涉及**跨进程通信**，根据复杂度选择 `Messenger` 或 `AIDL`。
 
-## **为什么不直接在 Activity 里 new 一个 Service 对象来通信？**
+## 为什么不直接在 Activity 里 new 一个 Service 对象来通信？
 
 Service 是 Android 的四大组件之一，必须由系统(AMS)负责实例化并管理其生命周期，手动 `new` 出来的只是一个普通 Java 对象，它没有 Context 环境，无法调用 `startService` 等系统方法，不是真正的 Service。
+
+## Android 版本迭代对于 Service 的更新和变化有哪些？
+
+**为了应对越来越严苛的系统限制，Android 官方推荐的后台任务解决方案，已经从直接使用 `Service`，演进为以 `WorkManager` 为主、`ForegroundService` 为辅的组合模式。** 而 `ServiceCompat`只是为了在过渡期保持兼容性的工具。
+
+### 核心概念对比
+
+| 概念                      | 核心定位                                         | 关键特点                                           | 当前状态 (2026年)                      |
+| ----------------------- | -------------------------------------------- | ---------------------------------------------- | --------------------------------- |
+| **`Service`**           | Android四大组件之一，用于执行后台任务的基础组件。                 | 分为**后台服务**和**前台服务**。普通后台服务在后台运行极易被系统限制。        | **不推荐**直接使用普通后台服务。                |
+| **`ForegroundService`** | 一种特殊的前台服务，用于执行用户可感知的、高优先级的任务[。               | 必须显示一个持续运行的通知，系统优先级高，不易被杀死。                    | **保留使用**，但仅限特定场景，且使用条件日益严格。       |
+| **`WorkManager`**       | Android Jetpack 组件，用于处理**可延期**的后台任务。         | 自动选择最佳执行方式(JobScheduler 等)，保证任务执行，设备重启后任务仍可恢复。 | **官方首选**的通用后台任务解决方案。              |
+| **`ServiceCompat`**     | AndroidX 库中的辅助类，用于在旧版 API上兼容使用新版本Service 特性。 | 提供如`startForeground()`等方法的向后兼容版本。              | **过渡工具**，在新项目中直接使用AndroidX 核心库即可。 |
+### 关系演变：为何用 WorkManager 取代普通 Service？
+
+随着 Android 系统对省电和隐私的重视，普通后台`Service`的使用受到了越来越多的限制。这个演变过程大致如下：
+
+1. **Android 8.0 (API 26) 的分水岭**：系统规定，应用进入后台后，其普通后台`Service`会在几分钟内被强制停止。此后，后台任务要么转为**前台服务**（`ForegroundService`），要么使用`JobScheduler`等系统调度器。
+    
+2. **Android 12 (API 31) 的收紧**：系统进一步限制了应用在**后台**启动`ForegroundService`的能力。
+    
+3. **Android 14 (API 34) 的规范化**：要求所有`ForegroundService`必须在`AndroidManifest.xml`中**显式声明其服务类型**（如`mediaPlayback`、`location`等），并申请对应的权限。
+
+**结论**：在严格的限制下，直接启动一个普通的后台`Service`已基本不可行。而`WorkManager`作为一个高层次的封装，能自动处理这些复杂的版本兼容问题，因此成为首选。
+
+### 最新的推荐用法
+
+#### 1. 大多数情况：使用 `WorkManager`
+
+对于绝大多数不需要用户立即感知的后台工作(如数据同步、日志上传、图片处理等)，`WorkManager`是最佳选择。
+
+- **优势**：它会根据系统情况(如网络、电量)智能调度，保证任务一定会被执行，并且兼容从Android 4.0 (API 14) 开始的所有版本。
+#### 2. 特定场景：使用 `ForegroundService`
+
+只有当任务对用户**高度可见且必须立即执行**时，才应使用前台服务。常见场景包括：
+
+- 音乐/视频播放 (`mediaPlayback`)
+    
+- 导航或位置追踪 (`location`)
+    
+- 语音/视频通话 (`phoneCall`)
+    
+- 屏幕录制或投影 (`mediaProjection`)
+
+### 如何正确使用 `ForegroundService`
+
+1.**声明权限和类型**
+
+在 `AndroidManifest.xml` 中，除了声明服务，**必须**加上 `android:foregroundServiceType` 属性。同时，需要根据你的服务类型申请对应的权限。
+
+```xml
+<!-- 1. 申请前台服务权限 -->
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<!-- 2. 若你的类型是 location，需额外申请；如果是 mediaPlayback 则申请对应权限 -->
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+<!-- 3. 如果通知需要显示（Android 13+），还需申请通知权限 -->
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+<application ...>
+    <!-- 4. 声明 Service，并显式指定类型（Android 14 强制要求），必须和实际做的事匹配，如果不匹配，               系统会抛出 ForegroundServiceTypeNotAllowedException。
+     -->
+    <service
+        android:name=".MyForegroundService"
+        android:foregroundServiceType="location"   <!-- 根据实际场景填写 -->
+        android:exported="false" />
+</application>
+```
+
+2.编写 Service 类
+
+写法和普通 `Service` 完全一样，只是必须在 `onCreate` 或 `onStartCommand` 中调用 `startForeground()`。
+
+```kotlin
+import android.app.Service
+import android.content.Intent
+import android.os.IBinder
+
+class MyForegroundService : Service() {
+
+    override fun onBind(intent: Intent?): IBinder? {
+        return null // 不绑定，仅启动
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        // 1. 创建通知（必须，因为前台服务强制显示通知）
+        createNotification()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // 执行你的后台任务（如上传文件、播放音乐、记录位置等）
+        return START_STICKY // 或 START_NOT_STICKY，根据需要
+    }
+
+    private fun createNotification() {
+        // 2. 对于 Android 8.0+，必须创建通知渠道
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "foreground_channel_id",
+                "后台任务通知",
+                NotificationManager.IMPORTANCE_LOW
+            )
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
+        }
+
+        // 3. 构建通知（Android 13+ 需用户授予 POST_NOTIFICATIONS 权限）
+        // 如果用户拒绝了 POST_NOTIFICATIONS 权限，你的通知将不显示，此时启动前台服务会失效。                    所以启动前最好先检查并申请该权限。 
+        val notification = NotificationCompat.Builder(this, "foreground_channel_id")
+            .setContentTitle("任务运行中")
+            .setContentText("正在处理...")
+            .setSmallIcon(R.drawable.ic_notification)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+
+        // 4. 核心：将 Service 提升为前台状态（传入唯一 ID 和通知）
+        startForeground(1001, notification)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // 5. 退出时移除前台状态（可选，通常调用 stopForeground(true)）
+        stopForeground(true)
+    }
+}
+```
+
+3.启动 Service
+
+启动时**必须**使用 `startForegroundService()`，否则在 Android 8.0 以上会报错。服务启动后，必须在 **5 秒内**调用 `startForeground()`，否则系统会触发 ANR（应用无响应）。
+
+```kotlin
+// 在 Activity 或 Fragment 中启动
+val intent = Intent(this, MyForegroundService::class.java)
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+    startForegroundService(intent)
+} else {
+    startService(intent)
+}
+
+//更简洁的做法是直接使用 ContextCompat：
+ContextCompat.startForegroundService(this, Intent(this, MyForegroundService::class.java))
+```
+
+4.停止 Service
+
+任务完成后，在 Service 内部调用 `stopSelf()`，或者外部调用 `stopService(intent)` 即可。
 
 ## 广播的分类和使用场景
 
@@ -291,6 +489,26 @@ Android 广播的底层实现是一套典型的 **Binder 跨进程通信机制*
 
 3. AMS 通过接口跨进程回调应用进程。应用进程在收到回调后，利用内部的 **Handler** 机制将逻辑切换到**主线程**，最终触发 `onReceive` 方法。
 
+## Android 版本迭代对于 Broadcast 的更新和变化有哪些？
+
+**1. 静态注册限制（8.0+）：**
+
+仅允许系统核心广播静态声明，普通广播必须使用 `registerReceiver()` 动态注册。
+
+**Android 14+** 动态注册时也必须强制指定`RECEIVER_EXPORTED` 或 `RECEIVER_NOT_EXPORTED`标记。
+
+**2. 内部通信替代（废弃）：** 
+
+LocalBroadcastManager 已废弃，因其存在生命周期泄漏风险且性能差，现完全由 **`LiveData` 或 `Flow`** 替代同进程通信。
+
+**3.高危权限加锁：**
+
+   **系统广播**携带的敏感数据，必须解锁对应权限才能接收。
+   
+- **位置**：接收位置更新的广播(ACTION_LOCATION_CHANGED)，前台需 `ACCESS_FINE/COARSE_LOCATION`，后台需额外 `ACCESS_BACKGROUND_LOCATION`(且 Android 11 后引导受限，需用户去设置页手动开)。
+    
+- **通知（13+）**：应用发送通知需 `POST_NOTIFICATIONS` 运行时权限；接收系统通知广播(`ACTION_NOTIFICATION_POSTED`) 则不需要该权限。
+
 ## 什么是 ContentProvider
 
 是 Android 跨进程共享数据的标准组件。它通过 **URI** 唯一标识数据资源，并向外部提供统一的 CRUD 接口，屏蔽了底层如 SQLite 或文件存储的实现细节。
@@ -323,6 +541,29 @@ AIDL 适合跨进程的方法调用(行为)；而 ContentProvider 专门为**结
 **ContentResolver** 是数据的**消费方接口**，它充当客户端代理，负责根据 URI 寻找并操作对应的 Provider，实现了调用方与提供方的解耦。
 
 **ContentObserver** 则是**反馈机制**，它允许客户端监听特定 URI 的数据变化。
+
+## Android 版本迭代对于 ContentProvider 的更新和变化有哪些？
+
+**1. 工具补全阶段（7.0~8.0）**
+
+> - **7.0 引入 FileProvider**：禁止`file://` URI跨应用传递，强制用`content://`，这是最常用的安全文件共享方案。
+>     
+> - **8.0 增强数据加载能力**：新增分页查询和`refresh()`刷新接口，支持大数据集分批加载。
+>     
+
+**2. 隐私管控阶段（10~11）**
+
+> - **10 推行分区存储**：访问外部媒体文件必须通过`MediaStore`（本质上就是系统`ContentProvider`），不能直接用文件路径，`DATA`字段被废弃。
+>     
+> - **11 引入包可见性限制**：访问其他应用的 Provider，必须在`<queries>`中显式声明，否则无法找到。
+>     
+
+**3. 强制规范阶段（12~14）**
+
+> - **12 强制声明`android:exported`**：只要有 intent-filter，必须显式写 true 或 false，否则无法安装。
+>     
+> - **14 收紧元数据访问**：调用`getType()`获取 MIME 类型，现在强制要求持有读权限。
+>
 
 ## RecyclerView 每一级缓存具体作用是什么，分别在什么场景下会用到哪些缓存
 
@@ -923,11 +1164,9 @@ Android 类加载器 `PathClassLoader` 继承自 `BaseDexClassLoader`，其�
 
 ## 组件化项目，不同组件间如何通信和传递数据
 
-**页面跳转**主要依赖 **ARouter**，它通过路径名替代了显式的类名引用，实现了 UI 层的解耦。  
+**页面跳转**主要依赖 **ARouter** 等路由框架，它通过路径名替代了显式的类名引用，实现了 UI 层的解耦。  
 
-**功能调用**则采用**接口下沉**方案：在公共模块定义接口，在业务模块实现，并通过 ARouter 的 `IProvider` 机制动态获取实例。
-
-也可使用依赖注入框架(如 Hilt)。
+**功能调用**则采用**接口下沉**方案：在公共模块定义接口，在业务模块实现。也可使用依赖注入框架(如 Hilt)。
 
 **数据同步**则利用具备生命周期感知的 **LiveData 或 Flow**。
    
@@ -969,6 +1208,7 @@ Jetpack AAC 组件是实现 MVVM 架构的官方标准方案。
 
 - **LifecycleOwner**：被观察者（Activity/Fragment）。
 - **LifecycleObserver**：观察者。
+
 
 **使用示例**
 ### 1. ViewModel + LiveData (数据层)
@@ -1150,7 +1390,7 @@ Android Studio 提供了官方的自动化重构工具，可以帮你完成 90% 
 
 首先需要创建一个 OkHttpClient 实例。在构建过程中，可以通过 Builder 模式设置各种参数，如超时时间、缓存策略、拦截器等
 
-2.**构建 Request**
+2.**构建 Request 实例**
 
 创建一个 Request 对象，它包含了请求的 URL、HTTP 方法（GET、POST 等）、请求头以及请求体等信息
 
@@ -1232,7 +1472,7 @@ OkHttp 使用责任链模式来组织拦截器，使得每个拦截器都能有�
 - 开启 `minifyEnabled`(代码混淆、压缩、优化) + `shrinkResources`(移除未引用资源)。
    > **`shrinkResources` 会移除未引用的资源文件，并对 `values/` 下的冗余键值对进行合并与占位符优化。**
 - 图片统一使用 Webp 格式，本地图片网络化。
-- 只保留 `xxhdpi` 或 `xxxhdpi`目录的资源。
+- 只保留 `xxhdpi` 或 `xxxhdpi`目录的本地资源。
 - 只保留 **`arm64-v8a`** abi 架构，动态下发 so。
 
 ## 事件分发机制
@@ -3676,9 +3916,9 @@ Google 官方开源，支持 HLS/RTMP/DASH，自定义能力强，Android 开发
 ## 流媒体播放出现卡顿、花屏、音画不同步，有哪些优化手段
 
 - 协议切换：高延迟 HLS → 低延迟 RTMP/UDP。
-- 自适应码率：根据网络带宽切换清晰度(480P/720P)。
-- CDN 加速：使用就近 CDN 节点，降低拉流延迟。
-- 硬件解码：开启 GPU 硬解，降低 CPU 占用。
+- **自适应码率**：根据网络带宽切换清晰度(480P/720P)。
+- **CDN 加速**：使用就近 CDN 节点，降低拉流延迟。
+- **硬件解码**：开启 GPU 硬解，降低 CPU 占用。
 - 缓冲优化：调整预缓冲大小，弱网增加缓冲时长。
 
 90% 的问题通过 **硬解+自适应码率+CDN** 即可解决，专业场景使用 ijkPlayer/ExoPlayer 自定义配置。
@@ -3900,7 +4140,87 @@ Flutter    ≈  完全自己造了一套 UI 体系，和 Native 几乎无关
 > - **RN**：用 JS 把业务和 UI 都跨端了，但依赖 Native 组件渲染。
 > - **Flutter**：把业务和 UI 都跨端了，而且连渲染也自己做。Flutter **几乎完全脱离了 Android View 绘制机制**，它只向系统借了一块 `SurfaceView` 画布，所有的 UI 组件、布局计算、绘制、事件分发全部由 Flutter 引擎自己接管，直接操作 GPU 渲染像素，和 Android View 那套 measure/layout/draw 流程完全无关。
 
-# 设计模式
+# 设计模式/解耦方式
 
 ## 设计原则
 
+在业界，最核心、最通用的就是 **SOLID 五大原则**。其他原则(如迪米特法则、合成复用原则)大多是 SOLID 在特定场景下的延伸。
+
+| 原则              | 英文 / 官方定义                                             | **一句话人话（速记）**                                     | **异常好记的场景（Android 举例）**                                                                                                            |
+| --------------- | ----------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **S**  <br>单一职责 | **Single Responsibility**  <br>一个类只能有一个引起它变化的原因。      | **“一个类只干一件事。”**  <br>（类过大 => 代码纠缠 => 改一处坏一片）      | **坏例子**：`UserActivity` 里同时写了网络请求、JSON解析、数据库存储和界面刷新。  <br>**好例子**：拆分为 `UserRepository`（数据）、`UserViewModel`（逻辑）、`UserFragment`（UI）。  |
+| **O**  <br>开闭原则 | **Open-Closed**  <br>对扩展开放，对修改关闭。                     | **“尽量加新类，少改老类。”**  <br>（成熟的旧代码改起来风险极高）            | **场景**：需要支持多种支付（微信、支付宝）。  <br>**实现**：定义 `IPay` 接口，新增支付方式时新建类实现接口，**绝不修改**调用支付的核心业务类。                                               |
+| **L**  <br>里氏替换 | **Liskov Substitution**  <br>子类必须能替换父类且程序行为不变。        | **“爹能去的地方，儿子都能去，且不出乱子。”**  <br>（子类别重写父类的非抽象方法搞特殊） | **坏例子**：父类是 `Bird`（会飞），子类是 `Ostrich`（鸵鸟）却重写了飞的方法并抛出异常。此时用父类接收鸵鸟就崩溃了。  <br>**好例子**：`RecyclerView.ViewHolder` 的所有子类都能正常被 Adapter 复用。 |
+| **I**  <br>接口隔离 | **Interface Segregation**  <br>不应该强迫客户端依赖它不用的接口。      | **“接口别贪大，按功能拆分。”**  <br>（胖接口导致实现类被迫实现一堆空方法）       | **坏例子**：一个 `OnItemClickListener` 接口里包含了 `onClick`、`onLongClick`、`onDoubleClick`，导致每个页面都得实现三个方法。  <br>**好例子**：拆成三个独立的小接口。           |
+| **D**  <br>依赖倒置 | **Dependency Inversion**  <br>依赖抽象(接口/抽象类)，而不是依赖具体实现。 | **“不要直接 new 细节，要依赖接口。”**  <br>（解耦神器）              | **典型体现**：Android 中的 **MVVM** 模式。  <br>View 不直接依赖具体的 OkHttp 或 Retrofit，而是依赖 `UserRepository` 接口。换网络库时，**View 层一行代码都不用改**。           |
+
+另一个常用的原则：
+
+| 合成复用原则<br> | “多用组合，少用继承。”(继承是强耦合，组合是松耦合) | 坏例子：为了复用代码，让 `Dog` 继承 `Animal`，再继承 `LivingThings`...(继承链爆炸)。  <br>好例子：在 `Dog` 类里 **组合** 一个 `EatBehavior` 和 `RunBehavior` 对象，想怎么拼就怎么拼。 |
+| ---------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+
+## 几个常用模式
+
+### 组合模式
+
+组合/聚合模式的核心解耦价值是“**依赖抽象而非具体”，通过让类持有其他类的接口实例(而非具体实现类)**，实现功能复用，**复杂功能通过组合多个单一职责的组件实现，每个组件仅专注于自身功能**，彼此间无依赖。而继承关系在编译期就已固定，无法动态变更，一旦父类或继承层级需要调整，所有子类都可能受到牵连。
+
+### 观察者模式
+
+观察者模式的核心是“定义对象间的一对多依赖关系，**当被观察者(Subject)的状态发生变更时，所有依赖它的观察者(Observer)会自动收到通知并更新”**，其本质是通过“解耦观察者与被观察者”，让两者仅通过抽象接口交互，无需感知对方的具体实现。
+
+其核心机制可概括为“角色定义→注册订阅→状态变更→通知更新→取消订阅”五步。需遵循“**框架优先、手动为辅**”的原则，**简单场景(如 UI 数据同步)优先用 LiveData，复杂异步场景(如多线程数据流)优先用 RxJava/Flow，跨组件通信优先用 BroadcastReceiver/EventBus**，避免重复造轮子。同时，需**警惕“内存泄漏”“过度通知”等**问题，通过“取消订阅”“生命周期感知”“频率控制”等手段，确保观察者模式的安全、高效运行。
+
+## 依赖注入(DI)
+
+依赖注入容器的核心是**由容器统一管理对象的创建、生命周期和依赖关系，替代手动 new 创建实例的硬编码方式**，其核心机制是“依赖声明→容器解析→自动注入”。
+
+**依赖声明**：通过注解标记依赖的创建方式(如 @Inject 标记类的构造函数，表示该类可被容器实例化)。  
+
+**依赖解析**：编译期通过注解处理器(APT)扫描注解，生成“依赖注入器”代码，自动解析依赖链(如 ViewModel→Repository→ApiService→Retrofit)。  
+
+**自动注入**：运行时，容器通过生成的注入器代码，按依赖链顺序创建实例，并将其“注入”到需要的对象中(如通过 @Inject 注解字段，容器自动赋值)。
+
+## 服务定位器
+
+服务注册中心基于“中心化注册表”模式，通过一个全局的“服务中介”（如ServiceManager）实现服务提供者与调用者的解耦，核心机制是“动态注册-发现”：  
+
+**服务定义**：服务以接口形式定义（如UserService），包含提供的能力（方法），作为服务的“契约”。  
+
+**服务注册**：服务提供者（如用户模块）在初始化时，将服务接口与其实例（如UserServiceImpl）注册到服务中心（ServiceManager.register(UserService.class, new UserServiceImpl())）。  
+
+**服务发现**：服务调用者（如订单模块）无需依赖提供者，直接通过服务中心查询接口对应的实例（ServiceManager.getService(UserService.class)），获取后调用接口方法。  
+
+**注册表维护**：服务中心内部通过 Map<Class<T>, Object> 存储 “服务接口→实例” 的映射，支持动态注册、查询、注销操作。
+
+## 路由框架
+
+路由框架的核心是通过“路由地址（字符串标识）”替代“类的直接引用”，消除组件间的编译期依赖，其底层运行机制分为三个关键阶段：  
+
+**编译期：生成路由表**  
+
+目标组件（如Activity、Fragment）通过注解（如@Route(path = "/order/detail")）标记唯一路由地址。  
+
+框架的注解处理器（APT）在编译期扫描所有带 @Route 的组件，收集“路由地址→组件信息（全类名、参数类型、拦截器等）”的映射关系，生成 Java 代码形式的路由表。
+
+**运行时：初始化路由表**
+
+应用启动时，路由框架通过反射或直接调用生成的路由表类，将“地址→组件”的映射加载到内存哈希表（Map<String, Class<?>>）中，形成可快速查询的路由索引。  
+
+**跳转时：解析地址并执行**
+
+调用方通过路由地址（如"/order/detail"）发起请求（如ARouter.getInstance().build("/order/detail").navigation()）。  
+
+框架从内存路由表中查找对应的组件类（如OrderDetailActivity），通过 Intent 或反射创建实例，自动传递参数并完成跳转。
+
+## 事件总线
+
+事件总线(如 GreenRobot 的 EventBus、RxBus 等)是基于**发布-订阅模式**的组件通信框架，核心是通过“事件中介”消除组件间的直接依赖，实现间接通信，其底层运行机制可分为 4 个关键步骤：  
+
+**事件定义：**通信的数据被封装为“事件类”（普通Java/Kotlin类），作为通信的载体。  
+
+**订阅者注册：**需要接收事件的组件（如Activity、Fragment）通过 register() 方法向事件总线注册，并通过注解（如@Subscribe）声明需要订阅的事件类型及处理方法。  
+
+**事件发布：**发送数据的组件通过 post(event) 方法向事件总线发布事件。  
+
+**事件分发：**事件总线内部维护“事件类型→订阅者列表”的映射表，收到事件后，遍历该事件类型对应的所有订阅者，调用其订阅方法（自动完成线程切换）。
