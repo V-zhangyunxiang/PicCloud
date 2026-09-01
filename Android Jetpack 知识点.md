@@ -704,7 +704,7 @@ WorkManager.getInstance(context).enqueue(uploadLogWork)
 
 CameraX 是 Jetpack 提供的相机开发库，在原生 Camera API(Camera1、Camera2)基础上封装，提供统一的 API 接口，简化相机预览、拍照、视频录制等功能的开发。通过“用例（UseCase）”抽象相机功能，开发者无需关心设备差异和底层 API，只需配置用例即可快速实现功能。
 
-![[Pasted image 20260901183937.png]]
+![[CameraX VS Camera API.png]]
 
 # Security 组件
 
