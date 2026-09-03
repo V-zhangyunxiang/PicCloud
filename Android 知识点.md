@@ -514,23 +514,191 @@ LocalBroadcastManager 已废弃，因其存在生命周期泄漏风险且性能�
 是 Android 跨进程共享数据的标准组件。它通过 **URI** 唯一标识数据资源，并向外部提供统一的 CRUD 接口，屏蔽了底层如 SQLite 或文件存储的实现细节。
 
 **工作流程**
+
 1. **服务端**：继承 `ContentProvider` 并实现核心方法，利用 `UriMatcher` 进行路由解析，并在 Manifest 中声明唯一的 `authorities`。
 2. **客户端**：通过 `ContentResolver` 配合 URI 发起请求。
 
 ## 外部应用怎么定位到你的 ContentProvider？
 
-**URI 格式**：`content://authority/path/id`
+外界进程通过 `URI` 找到对应的`ContentProvider` & 其中的数据，再进行数据操作，`URI`分为**系统预置&自定义**，分别对应系统内置的数据(如通讯录、日程表等等)和自定义数据库
+
+### URI
+
+定义：`Uniform Resource Identifier`，即统一资源标识符，唯一标识 `ContentProvider` & 其中的数据。
+格式：`content://authority/path/id`
 
 - `content://`：标准前缀。
 - `authority`：授权信息，通常是包名，用于唯一标识一个 Provider。
 - `path`：数据表名或路径。
 - `id`：可选，指向某条具体数据。
 
-## **ContentProvider 的 onCreate() 什么时候执行？**
+URI 模式存在匹配通配符 * & ＃
+```text
+ *： 匹配任意长度的任何有效字符的字符串
+＃：匹配任意长度的数字字符的字符串
+```
+
+### MIME 数据类型
+
+作用：指定某个扩展名的文件用某种应用程序来打开。
+如指定`.html`文件采用`text`应用程序打开、指定`.pdf`文件采用`flash`应用程序打开。
+
+**`ContentProvider` 根据  `URI` 返回 `MIME` 类型**。
+
+> ContentProvider.geType(uri);
+
+每种`MIME`类型 由 2 部分组成 = 类型 + 子类型。
+
+> text / html 
+> // 类型 = text、子类型 = html 
+> 
+> text/css、text/xml、application/pdf
+
+## ContentProvider 类
+
+`ContentProvider`主要以 **表格的形式** 组织数据，每个表格中包含多张表，每张表包含行 & 列，分别对应记录 & 字段。
+
+进程间共享数据的本质是：**添加、删除、获取、修改** 数据，所以`ContentProvider`的核心方法也主要是上述 4 个作用。
+
+```java
+<-- 4个核心方法 -->
+  public Uri insert(Uri uri, ContentValues values) 
+  // 外部进程向 ContentProvider 中添加数据
+
+  public int delete(Uri uri, String selection, String[] selectionArgs) 
+  // 外部进程 删除 ContentProvider 中的数据
+
+  public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs)
+  // 外部进程更新 ContentProvider 中的数据
+
+  public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs,  String sortOrder)　 
+  // 外部应用 获取 ContentProvider 中的数据
+
+/*
+上述 4 个方法由外部进程回调，并运行在 ContentProvider 进程的 Binder 线程池中。
+  a. 若 ContentProvider 的数据存储方式是使用 SQLite & 一个，则不需要，因为 SQLite 内部实现好了线程同步，若是多个 SQLite 则需要，因为 SQL 对象之间无法进行线程同步。
+  b. 若 ContentProvider 的数据存储方式是内存，则需要自己实现线程同步。
+*/
+
+<-- 2个其他方法 -->
+public boolean onCreate() 
+// ContentProvider 创建后或打开系统后其它进程第一次访问该 ContentProvider 时由系统进行调用
+// 注：运行在 ContentProvider 进程的主线程，故不能做耗时操作
+
+public String getType(Uri uri)
+// 得到数据类型，即返回当前 Url 所代表数据的 MIME 类型
+```
+
+`Android`为常见的数据(如通讯录、日程表等)提供了内置了默认的 `ContentProvider`，但也可根据需求自定义 `ContentProvider`，但必须重写上述 6 个方法。**`ContentProvider` 类并不会直接与外部进程交互，而是通过`ContentResolver` 类。**
+
+`Android` 提供了 3 个用于辅助`ContentProvider`的工具类：
+
+- `ContentUris`
+- `UriMatcher`
+- `ContentObserver`
+
+### ContentUris 类
+
+- 作用：操作 `URI`
+
+- 具体使用  
+
+  核心方法有两个：`withAppendedId()` &`parseId()`
+
+```java
+// withAppendedId() 作用：向 URI 追加一个 id
+Uri uri = Uri.parse("content://cn.scu.myprovider/user") 
+Uri resultUri = ContentUris.withAppendedId(uri, 7);  
+// 最终生成后的Uri为：content://cn.scu.myprovider/user/7
+
+// parseId() 作用：从 URL 中获取 ID
+Uri uri = Uri.parse("content://cn.scu.myprovider/user/7") 
+long personid = ContentUris.parseId(uri); 
+//获取的结果为:7
+```
+
+### UriMatcher 类
+
+作用
+1. 在`ContentProvider` 中注册`URI`
+2. 根据 `URI` 匹配 `ContentProvider` 中对应的数据表
+
+```java
+// 步骤 1：初始化 UriMatcher 对象
+  UriMatcher matcher = new UriMatcher(UriMatcher.NO_MATCH); 
+ //常量 UriMatcher.NO_MATCH  = 不匹配任何路径的返回码
+ // 即初始化时不匹配任何东西
+ 
+ // 步骤 2：在 ContentProvider 中注册 URI( addURI() )
+    int URI_CODE_a = 1；
+    int URI_CODE_b = 2；
+    matcher.addURI("cn.scu.myprovider", "user1", URI_CODE_a); 
+    matcher.addURI("cn.scu.myprovider", "user2", URI_CODE_b); 
+    // 若 URI 资源路径 = content://cn.scu.myprovider/user1 ，则返回注册码 URI_CODE_a
+    // 若 URI 资源路径 = content://cn.scu.myprovider/user2 ，则返回注册码 URI_CODE_b
+
+// 步骤 3：根据 URI 匹配 URI_CODE，从而匹配 ContentProvider 中相应的资源( match() )
+@Override   
+    public String getType(Uri uri) {   
+      Uri uri = Uri.parse(" content://cn.scu.myprovider/user1");   
+      switch(matcher.match(uri)){   
+     // 即 matcher.match(uri) == URI_CODE_a
+      case URI_CODE_a:   
+        return tableNameUser1;   
+      case URI_CODE_b:   
+        return tableNameUser2;
+    }   
+}
+
+```
+
+## ContentResolver 类
+
+统一管理不同 `ContentProvider`间的操作，通过 `URI` 即可操作不同的`ContentProvider` 中的数据。
+
+`ContentResolver` 类提供了与`ContentProvider`类相同名字 & 作用的 4 个 CRUD 方法。
+
+```java
+// 使用 ContentResolver 前，需要先获取 ContentResolver
+// 可通过在所有继承 Context 的类中 通过调用 getContentResolver() 来获得 ContentResolver
+ContentResolver resolver =  getContentResolver(); 
+
+// 设置 ContentProvider 的 URI
+Uri uri = Uri.parse("content://cn.scu.myprovider/user"); 
+ 
+// 根据 URI 操作 ContentProvider 中的数据
+// 此处是获取 ContentProvider 中 user 表的所有记录 
+Cursor cursor = resolver.query(uri, null, null, null, "userid desc"); 
+
+```
+
+## ContentObserver 类
+
+观察 `Uri`引起 `ContentProvider` 中的数据变化 & 通知外界(即访问该数据访问者)
+
+```java
+// 步骤 1：注册内容观察者 ContentObserver
+    getContentResolver().registerContentObserver(uri)；
+
+// 步骤 2：当该 URI 的 ContentProvider 数据发生变化时，通知外界
+    public class UserContentProvider extends ContentProvider { 
+      public Uri insert(Uri uri, ContentValues values) { 
+      db.insert("user", "userid", values); 
+      getContext().getContentResolver().notifyChange(uri, null); 
+      // 通知访问者
+   } 
+}
+
+// 步骤 3：解除观察者
+ getContentResolver().unregisterContentObserver(uri)；
+ // 同样需要通过 ContentResolver 类进行解除
+```
+
+## ContentProvider 的 onCreate() 什么时候执行
 
 它在 **Application.onCreate() 之前**执行（在 `attachBaseContext` 之后）。系统启动进程后，会先加载并初始化所有的 ContentProvider。所以不要在 Provider 的 `onCreate` 里做耗时操作。
 
-## AIDL 也能跨进程，为什么要用 ContentProvider？
+## AIDL 也能跨进程，为什么要用 ContentProvider
 
 AIDL 适合跨进程的方法调用(行为)；而 ContentProvider 专门为**结构化数据共享**设计，它内置了对数据库、文件的支持，且配合 `CursorLoader` 或 `ContentObserver` 能更方便地处理 UI 与数据的绑定。
 
@@ -4163,7 +4331,7 @@ Flutter    ≈  完全自己造了一套 UI 体系，和 Native 几乎无关
 
 ### 组合模式
 
-组合/聚合模式的核心解耦价值是“**依赖抽象而非具体”，通过让类持有其他类的接口实例(而非具体实现类)**，实现功能复用，**复杂功能通过组合多个单一职责的组件实现，每个组件仅专注于自身功能**，彼此间无依赖。而继承关系在编译期就已固定，无法动态变更，一旦父类或继承层级需要调整，所有子类都可能受到牵连。
+组合/聚合模式的核心解耦价值是“**依赖抽象而非具体”，通过让类持有其他类的接口实例(而非具体实现类)**，实现功能复用，**复杂功能通过组合多个单一职责的组件实现，每个组件仅专注于自身功能**，彼此间无依赖。而**继承关系在编译期就已固定，无法动态变更**，一旦父类或继承层级需要调整，所有子类都可能受到牵连。
 
 ### 观察者模式
 
@@ -4183,7 +4351,7 @@ Flutter    ≈  完全自己造了一套 UI 体系，和 Native 几乎无关
 
 ## 服务定位器
 
-服务注册中心基于“中心化注册表”模式，通过一个全局的“服务中介”（如ServiceManager）实现服务提供者与调用者的解耦，核心机制是“动态注册-发现”：  
+服务注册中心基于“中心化注册表”模式，通过一个全局的“服务中介”（如 ServiceManager）实现服务提供者与调用者的解耦，核心机制是“动态注册-发现”：  
 
 **服务定义**：服务以接口形式定义（如UserService），包含提供的能力（方法），作为服务的“契约”。  
 
