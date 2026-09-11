@@ -29,7 +29,7 @@ Maven 用 XML 配置，结构臃肿且逻辑表达能力极差。Gradle 直接�
 
 **2. 极致的性能(增量构建 & 构建缓存)**
 
-这是Gradle的“杀手锏”。大型项目每次全量编译要几分钟，Gradle引入了 **增量构建(Incremental Build) 机制：
+这是Gradle的“杀手锏”。大型项目每次全量编译要几分钟，Gradle引入了**增量构建(Incremental Build) 机制**：
 
 - 它会记录每个任务（Task）的输入（源码）和输出（class文件）的指纹（哈希值）。
     

@@ -976,7 +976,7 @@ Android 平台 (SDK)
 | **版本号一致性**   | 通常与原始库一致，少数情况可能存在差异（需参考具体库的文档）。    |
 | **开发建议**     | 优先保持版本一致，使用 BOM 简化管理，避免手动指定不一致的版本。 |
 
-# KTX 库兼容原始库吗，原始库的 API 调用方式还能正常使用吗，还是必须使用 KTX 语法
+# KTX 库兼容原始库吗，原始库的 API 调用方式还能使用吗，必须使用 KTX 语法吗
 
 **KTX 库与原始库的关系**
 - **KTX 是扩展而非替代**：KTX 库基于原始库构建，通过 **Kotlin 扩展函数、属性、高阶函数** 等方式优化 API 的调用体验，**不会替换或破坏原始库的 Java 风格 API**。
@@ -1065,3 +1065,96 @@ Android 平台 (SDK)
 | **依赖管理**            | KTX 库通常自动依赖原始库，无需手动添加；版本需保持一致以避免冲突。                          |
 
 **推荐策略**：在 Kotlin 项目中优先使用 KTX 扩展以提升代码质量，同时在复杂场景或遗留代码中灵活使用原始 API。
+
+# Clean Architecture 和 MVVM 的关系
+
+**MVVM 和 Clean Architecture 解决的是不同层面的问题**，它们可以共存，且 **Google 官方现在推荐的就是将两者结合使用**。
+
+两者关系如下：
+
+- **MVVM (Model-View-ViewModel)**：是一种**界面架构模式**，专注于解决 **UI 层** 内部如何组织代码的问题。
+    
+- **Clean Architecture**：是一种**软件分层架构**，为**整个应用程序**（从UI到数据库）提供宏观的分层指导。
+    
+- **它们的关系**：**Clean Architecture 是“骨架”，MVVM 是“血肉”**。你可以将 MVVM 模式应用在 Clean Architecture 的最外层——**界面层 (Presentation Layer)** 中。
+
+![[Clean Arch.png|666]]
+
+两者在代码中都有“调用方法”的行为，但它们的关注点有本质区别：
+
+- **ViewModel 是“UI 状态管家”**：它的核心职责是**为 UI 准备和管理数据**。它负责将 `UseCase` 或 `Repository` 返回的数据，转换成 UI 可以直接展示的形式，并处理屏幕旋转等配置变化带来的状态保存问题。
+    
+- **UseCase 是“业务规则封装器”**：它代表一个**单一、完整、可复用的业务用例**，比如 `GetUserProfileUseCase` 或 `SaveOrderUseCase`。它封装了**与 UI 无关**的核心业务逻辑。
+
+**单独使用 MVVM（无 UseCase）**：
+```kotlin
+// ViewModel 直接依赖 Retrofit，并包含业务逻辑
+class LoginViewModel : ViewModel() {
+    private val api = RetrofitClient.create()
+    fun login(username: String, password: String) {
+        // 业务逻辑(如参数校验、调用 API)直接写在 ViewModel 里
+        api.login(...)
+    }
+}
+```
+这种方式的问题是 ViewModel 变得臃肿，且业务逻辑与 Android 框架（Retrofit）耦合。
+
+**采用 MVVM + Clean Architecture**：
+```kotlin
+// 1. Domain 层：UseCase 定义业务规则，是纯 Kotlin 代码，无 Android 依赖
+class LoginUseCase(
+    private val repository: AuthRepository // 依赖接口，不依赖具体实现
+) {
+    suspend operator fun invoke(username: String, password: String): User {
+        // 核心业务逻辑，如校验、调用 Repository
+        return repository.login(username, password)
+    }
+}
+
+// 2. Presentation 层：ViewModel 只负责协调 UseCase 和 UI 状态
+class LoginViewModel(
+    private val loginUseCase: LoginUseCase // 依赖的是业务用例，而非具体数据源
+) : ViewModel() {
+    fun login(username: String, password: String) {
+        viewModelScope.launch {
+            _uiState.value = UiState.Loading
+            val result = loginUseCase(username, password) // 调用 UseCase
+            _uiState.value = UiState.Success(result)
+        }
+    }
+}
+```
+`LoginUseCase` 封装了“登录”这个**业务动作**，它是纯粹的、可测试的，并且可以被多个 `ViewModel` 复用。
+`LoginViewModel` 则负责调用 `LoginUseCase`，并管理 `UiState` 的**状态流转**(加载中 -> 成功/失败)。
+
+Clean Architecture 提供了一套更完整的**分层思想和指导原则**，其中的 `UseCase` 概念正好可以用来承载业务逻辑，让 `ViewModel` 回归其“管理 UI 状态”的本职。
+
+# ViewModel 直接调用 Repository 是不是足够了
+
+`ViewModel` 不堆砌非 UI 逻辑，逻辑都在 `Repository` 里，这已经是非常好的 **MVVM 最佳实践** 了。
+
+在这种情况下，`Repository` 扮演了双重角色：
+
+- **数据来源的抽象**（从网络/数据库取数据）。
+    
+- **业务逻辑的编排**（组合、计算、判断）。
+
+当业务简单时，`Repository` 做这两件事刚刚好，再加 `UseCase` 确实是“为了架构而架构”，平添复杂度。
+
+当你的应用业务变得**复杂**时，`UseCase` 的价值才会凸显。它主要解决 `Repository` 和 `ViewModel` 各自“能力边界”的问题：
+
+**痛点一：`Repository` 会变得“臃肿不堪”**
+
+`Repository` 的本职是 **“数据存取”**（单点职责）。如果业务规则都塞进 `Repository`，它的职责开始混乱，如果增加了 UseCase，`Repository` 只负责提供原始数据，UseCase 负责调用 Repository 获取数据后执行相关业务规则，符合单一职责原则。
+
+**痛点二：`ViewModel` 里的“组合逻辑”无法复用**
+
+假设你有两个页面：
+
+- 页面 A：显示“用户信息 + 最近一条订单”。
+    
+- 页面 B：显示“用户信息 + 最近一条消息”。
+
+如果直接在 `ViewModelA` 和 `ViewModelB` 里分别调用 `UserRepository` 和 `OrderRepository`/`MsgRepository`，每个 `ViewModel` 都要写一遍 `async` 并发调用的代码。如果增加了 UseCase，封装一个 `GetUserDashboardUseCase`(组合用户和订单)，另一个 `GetUserMsgUseCase`(组合用户和消息)。`ViewModel` 只需调用一个 `UseCase`，复用的是**业务工作流**，而非数据结构。
+
+**不用强迫自己为了用而用**。当业务没有复杂到那个程度时，现在的 “ViewModel + Repository” 双剑合璧，就是最好的架构，**`UseCase` 是用来“解耦”复杂业务编排的**，等哪天代码开始散发出“坏味道”，再自然而然地引入 `UseCase` 抽离即可。
