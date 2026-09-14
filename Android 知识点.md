@@ -8,41 +8,10 @@
 调用 `startActivity` 后，通过 `Instrumentation` 获取 AMS 的 Binder 代理，发起跨进程（IPC）请求。
 
 **2. 系统端（AMS 决策与孵化）：**  
-AMS 接收后校验 Intent 和权限，回调旧 Activity 的 `onPause`，并根据启动模式（LaunchMode）计算目标栈。**若目标进程不存在**，AMS 会通过 Socket 向 Zygote 发起 fork 请求创建新进程，新进程入口为 `ActivityThread.main()`。
+AMS 接收后校验 Intent 和权限，回调旧 Activity 的 `onPause`，并根据启动模式（LaunchMode）计算目标栈。**若目标进程不存在**，AMS 会(通过 Socket) 向 Zygote 发起 fork 请求创建新进程，
 
 **3. 应用端（事务回调与生命周期）：**  
-新进程通过 `attachApplication` 向 AMS 报到（注册 `ApplicationThread` 反向 Binder）。AMS 随后回传 `LAUNCH_ACTIVITY` 事务，应用端通过 **Handler H** 切到主线程，最终由 `Instrumentation` 反射创建 Activity，并顺序执行 `onCreate` → `onStart` → `onResume`。
-
-```text
-时间轴 ──────────────────────────────────────────────────────────────────►
-
-[源App进程]          [system_server进程]           [目标App进程]
-   │                        │                            │
-   │ ① startActivity       │                            │
-   │ ──── Binder调用 ────► │                            │
-   │                        │ ② 解析Intent/计算栈        │
-   │                        │    (AMS主线程处理)          │
-   │ ③ schedulePause       │                            │
-   │ ◄─── Binder回调 ────  │                            │
-   │                        │                            │
-   │ ④ 执行旧Activity       │                            │
-   │    .onPause()          │                            │
-   │                        │                            │
-   │                        │ ⑤ 判断目标进程是否存在      │
-   │                        │    ┌──────────────┐        │
-   │                        │    │ 冷启: 请求   │        │
-   │                        │    │ Zygote fork  │        │
-   │                        │    │ 热启: 跳过   │        │
-   │                        │    └──────────────┘        │
-   │                        │                            │
-   │                        │ ⑥ scheduleLaunchActivity  │
-   │                        │ ──── Binder下发 ─────────► │
-   │                        │                            │ ⑦ Binder池接收
-   │                        │                            │ ⑧ Handler H切主线程
-   │                        │                            │ ⑨ 反射创建Activity
-   │                        │                            │    onCreate→onResume
-   ▼                        ▼                            ▼
-```
+新进程启动后执行 `ActivityThread.main()` ，通过反向 Binder 向 AMS 注册。AMS 通过反向 Binder 回调启动事务，新进程通过 **Handler H** 从 Binder 线程切到主线程，最终由 `Instrumentation` 反射创建 Activity，并顺序执行 `onCreate` → `onStart` → `onResume`。
 ## onSaveInstanceState，onRestoreInstanceState 的调用时机
 
 `onSaveInstanceState()` 在 Activity 被非主动销毁前调用（`onPause() -> onSaveInstanceState() -> onStop()`）。
@@ -1439,7 +1408,15 @@ class MainActivity : AppCompatActivity() {
 
 ## Android 的 16KB so 升级是什么意思，如何适配
 
-**1. 什么是“16KB so 升级”？**
+NDK 提供的 **C++ 标准库（libc++）有两种分发和链接形式**。
+
+- **`c++_static` (静态链接)**：会把 C++ 标准库的代码**完整地打包**进你生成的**每一个** `.so` 文件里。
+    
+- **`c++_shared` (动态链接)**：你的 `.so` 文件**只保留对外部标准库的引用**，而真正的标准库代码会以独立的 `libc++_shared.so` 文件形式，在 App 打包时一并放入 APK。
+
+使用 `c++_shared` 则能确保整个 App 进程**只有一份** C++ 标准库实例。16KB 适配的“检查对象”是所有需要被系统动态加载的 `.so` 文件，而 .so 动态库由系统的 `dynamic linker`（动态链接器）在运行时加载。
+
+**什么是“16KB so 升级”？**
 
 在 Linux 内核（Android 的基础）中，内存是以“页”为单位进行管理的。过去 15 年，Android 设备一直固定使用 **4KB** 的页面大小。
 
@@ -1449,18 +1426,21 @@ class MainActivity : AppCompatActivity() {
     2. **降低开销**：减少了 CPU 管理内存页表（TLB）的频率，显著降低了高负载下的功耗。
 - **强制时间线**：自 **2025 年 11 月 1 日**起，所有提交至 Google Play 且针对 Android 15+ 的新应用和更新，**必须**支持 16KB 页面大小，否则将无法上架或在现代设备上崩溃
 ---
-**2.哪些应用需要适配？**
+**哪些应用需要适配？**
 
 1. **纯 Java/Kotlin 应用**：如果你的项目不包含任何 `.so` 文件，且不依赖包含 Native 代码的第三方 SDK，则**无需手动适配**，系统会自动处理。
 2. **含 Native 代码的应用**：只要你的项目中 `lib/` 目录下存在 `.so` 文件（无论是自己写的 C/C++ 代码，还是集成的第三方 SDK 如 FFmpeg、OpenSSL、地图 SDK 等），都**必须适配**16KB。
 ---
-**3.如何进行 16KB 适配？**
 
-适配工作主要分为“编译对齐”和“代码逻辑修正”两个部分：
+**如何进行 16KB 适配？**
+
+适配工作主要分为 “**编译 + 打包对齐**” 和 “**代码逻辑修正**” 两个部分：
 
 **1.升级构建环境与工具链**
-   1. **Android Gradle 插件 (AGP)**：建议升级至 **8.5.1 或更高版本**。
-   2. **NDK 版本**：建议升级至 **r27 或更高版本**。新版 NDK 默认支持 16KB 对齐，能大幅简化配置工作。
+   1. **NDK 版本**：**r27 或更高版本，已经将 16KB 对齐作为默认编译选项**，无需再手动添加任何链接器参数。
+   2. **Android Gradle 插件 (AGP)**：升级至 **8.5.1 或更高版本，在打包时会自动将未压缩的 `.so` 文件按 16KB 边界进行 ZIP 对齐**。
+
+**两者是缺一不可的**：NDK 负责生成“合格”的 `.so` 文件，AGP 负责把“合格”的文件放到 APK 中“合格”的位置。
 
 **2.修改编译配置（针对自己的代码）**
 
@@ -1491,11 +1471,9 @@ int pageSize = getpagesize();
  
  **4.更新第三方 SDK**
 
-这是最难控制的一环。你需要检查项目中所有的第三方 `.so` 库。如果它们未进行 16KB 对齐，应用在 16KB 模式下会报 `dlopen failed` 错误。
+这是最难控制的一环。需要检查项目中所有的第三方 `.so` 库。如果它们未进行 16KB 对齐，应用在 16KB 模式下会报 `dlopen failed` 错误，需要联系 SDK 供应商获取已适配 16KB 的新版本，或者寻找开源库的最新源码重新编译。
 
-- **操作**：联系 SDK 供应商获取已适配 16KB 的新版本，或者寻找开源库的最新源码重新编译。
-## 从 android.support  迁移到 AndroidX 如何适配，AndroidX 是什么
-
+## 从 android.support  迁移到 AndroidX 如何适配
 ### 什么是 AndroidX？
 
 **AndroidX**（Android Extension Library）是 Google 推出的一套用于替代旧版 `android.support`（Support 库）的全新开源架构库，它是 Android Jetpack 的核心组成部分。
@@ -3546,8 +3524,31 @@ public class BakeryTest {
 
 ## 数据类 (data class) 的作用是什么，与普通类相比有何优势
 
-数据类会自动生成一些常用的方法，一行搞定。
-包括 `set/get`, `equals()`, `hashCode()`, `toString()`,`copy()`,`componentN`(支持解构)。
+`data class` 是 Kotlin 中专门用来**承载数据**的类。它的核心作用是：**编译器自动帮你生成一组处理数据时最常用的方法**，让你不用手写样板代码。
+
+```kotlin
+data class User(val name: String, val age: Int)
+```
+
+上面一行代码，相较于普通类，编译器会自动生成以下方法：
+
+| 方法             | 作用                                          |
+| -------------- | ------------------------------------------- |
+| `equals()`     | 按属性值比较两个对象是否相等                              |
+| `hashCode()`   | 基于属性值生成哈希码，配合 `equals()` 用于 HashMap、HashSet |
+| `toString()`   | 输出 `User(name=Tom, age=20)` 这种可读字符串         |
+| `copy()`       | 复制对象并可选择修改部分属性，生成新对象                        |
+| `componentN()` | 支持解构声明，如 `val (name, age) = user`           |
+
+**限制：**
+
+- `data class` 不能是 `abstract`、`open`、`sealed`、`inner`。
+    
+- 主构造函数必须至少有一个参数，且所有参数必须是 `val` 或 `var`。
+    
+- 不能继承其他类（只能实现接口）。
+
+`data class` 可以包含方法和业务逻辑，只有当你的类**以行为为主、数据只是附带**，或者需要继承、复杂状态管理时，才用普通类。
 
 ## 扩展函数的原理是什么
 
@@ -3560,16 +3561,25 @@ public class BakeryTest {
 - 不能被子类重写
 - 成员函数优先级高于扩展函数
 
-## 高阶函数是什么
+## 高阶函数是什么，什么是内联
 
 满足以下条件之一的函数：
 
 - **接收一个或多个函数作为参数**。
 
-- **返回一个函数作为结果**。
+- **返回一个函数**。
 
- Lambda 参数在编译后会生成匿名类对象，频繁调用会有内存开销。
- 加上 `inline` 关键字，编译器会将函数体和 Lambda 直接内联到调用处，消除匿名对象创建开销。
+ Lambda 本质上是函数类型的实例。在 JVM 上，它通常会被编译成一个对象（如 `Function1`、`Function2`），因此普通高阶函数**每次调用都可能产生额外的对象分配和方法调用开销**。
+
+**内联（inline）** 是编译期的一种优化手段，把被调用函数的**函数体代码**直接“复制粘贴”到调用处，而不是通过函数调用的方式跳转过去执行。
+
+**Lambda 参数内联**：把 Lambda 的代码直接替换到函数体内该 Lambda 调用处，Lambda 的代码也被“复制粘贴”进去了，不再需要创建 Lambda 对象，也不再需要 `invoke()` 调用。
+
+**“局部”和“非局部”描述的是返回动作的影响范围**，Lambda 内用 `return@label` 只退出自己，是局部；用 `return` 跳出 Lambda 并退出外层函数，作用范围超出了局部，所以叫非局部。
+
+- **`inline`**：函数体内联，所有 Lambda 也内联，允许非局部返回。
+- **`noinline`**：被标记的 Lambda 不内联，禁止非局部返回，当成普通对象用。
+- **`crossinline`**：被标记的 Lambda 内联，但禁止非局部返回，适合跨上下文调用。
 
 ## Kotlin与 Java 代码互操作的方式和注意事项
 
@@ -3586,8 +3596,10 @@ Java 返回值在 Kotlin 中是平台类型，既可能是 String 也可能是 S
 Kotlin 委托分两种
 
 - 类委托(接口委托)：把接口的实现委托给另一个对象。
+
 - 属性委托：把属性的 get/set 逻辑委托给另一个对象。
-  自定义属性委托：需要实现 getValue/setValue。
+
+  > 自定义属性委托：需要实现 getValue/setValue。
 
 Kotlin 内置的三种属性委托
 
@@ -3682,6 +3694,15 @@ Kotlin 内置的三种属性委托
 - 普通 `Job`：子协程失败会取消父协程，进而取消所有兄弟协程。
 - `SupervisorJob`：子协程失败不影响父协程和其他兄弟协程，各子协程独立。
 
+**Job vs SupervisorJob**
+
+| 方面       | Job             | SupervisorJob |
+| -------- | --------------- | ------------- |
+| 子 Job 失败 | 取消父 Job 和兄弟 Job | 仅影响该子 Job     |
+| 父 Job 取消 | 取消所有子 Job       | 取消所有子 Job     |
+| 异常处理     | 自动传播            | 必须逐个处理子 Job   |
+| 使用场景     | 应该一起失败的相关任务     | 独立任务          |
+| 典型场景     | 数据库事务           | 多个 API 调用     |
 ###  Dispatchers
 
 **决定了协程运行的线程**。
