@@ -1,18 +1,28 @@
-# Claude Code
+#  Vibe Coding 是什么
 
-Anthropic 推出的智能体(Agent)工具，主要用于 搜索+编码 的使用场景。网页版 ChatGPT、DeepSeek 本质上算是聊天机器人，CC 是直接运行在电脑里的执行者，可以对本地文件进行增删改查、安装依赖，只需要提出要求它就会一步步执行、迭代直到完成，这种能自主操作计算机、完成实际任务的形态，就是大家常说的 AI Agent。
+Vibe Coding 更像是编程的一种**特定风格或哲学**，而 AI Coding 则是一个更**宽泛的技术概念**。
 
-# 使用方式
+定义很明确：**不审查、不理解、直接 Accept AI 生成的代码**。
+ 
+![[Vide Coding VS AI Coding.png]]
 
-## 终端使用(CLI)
+# LLM (大语言模型)
 
-更灵活，可以接入第三方的 API，选择更便宜的模型购买更便宜的套餐。终端是一个文本窗口，专门用来运行各种命令行程序，输入命令程序把结果显示出来，
+大语言模型将输入的文本拆解成 token，不是一个字也不完全等于一个词，每个 token 对应一个数字(Token ID)，大模型通过计算预测出一个 token 后面最应该接哪个，从而平凑出完整回答，在这个过程中你的提问就是 Prompt(提示词)，而想要让 LLM 回答的更准确，就需要描述好 Prompt，这套把话说清楚的理论就是 Prompt Engineering(提示词工程)，
 
-## 桌面应用使用(GUI)
+# Token (词元)
 
-Claude Code 桌面端，CodeX 桌面端。
+模型不是按字读，也不是按词读，是按 Token 读。
 
-# Prompt 提示词
+Token 是大模型处理文本的最小单位。一个汉字通常是 1-2 个 token，一个英文单词可能是 1-3 个 token,代码、标点、特殊符号，各有各的切分规则。
+
+大模型的一切都按 Token 计量:
+
+- 计费按 Token 算。
+- 上下文窗口的大小按 Token 算。
+- API 的速率限制也按 Token 算。
+
+# Prompt (提示词)
 
 就是你输入给大模型的内容。
 
@@ -23,6 +33,7 @@ Claude Code 桌面端，CodeX 桌面端。
 ## 非常清楚要想什么
 
   逆向工程。从结果倒推 AI 需要哪些前提条件。
+  
   目标：固定输入 -> 固定输出。
   
 ## 两种提示词
@@ -43,11 +54,15 @@ AI 的底层人设
 
 通过逆向工程找到完美提示词 -> 写入系统提示词 -> AI 变成稳定输出的干活机器。
 
-Prompt 越具体，它才能干的越好，具体的前提是花时间学习相关领域的知识，没有人不会写作就能指挥 AI 写出好文章，没有人不会写代码就能通过 AI 写出好代码，AI 能帮你学习但不是让你不用学习。
+**提示词核心要素**
 
-# 上下文窗口(Context Window)
+**上下文 + 目标 + 约束条件。**
 
-Claude 的短期记忆。模型本质是"无状态"的，没有真正的记忆，每次发送新消息时系统把全部历史打包重发了一遍，对话越长，每次发送的包越大，聊天轮次越多 Token 指数级暴涨，注意力会涣散，记忆错乱幻觉频发。
+Prompt 越具体，它才能干的越好，具体的前提是花时间学习相关领域的知识，没有人不会写作就能指挥 AI 写出好文章，没有人不会写代码就能通过 AI 写出好代码，**AI 能帮你学习但不是让你不用学习。**
+
+# Context (上下文) + Memory (记忆)
+
+模型本质是"无状态"的，没有真正的记忆，每次发送新消息时系统把全部历史打包重发了一遍，对话越长，每次发送的包越大，聊天轮次越多 Token 指数级暴涨，注意力会涣散，记忆错乱幻觉频发。 
 
 上述问题在写代码时尤为突出，需要及时控制上下文，做好任务隔离。
 
@@ -55,256 +70,95 @@ Claude 的短期记忆。模型本质是"无状态"的，没有真正的记忆�
 2. 遇到一个新的 bug，开一个新的上下文，不要在旧对话继续。
 3. 不要指望一个对话框从头到尾写完一个复杂的项目。
 
-# Token
+但大模型理解上下文的长度是有限的，对话不断积累，模型会忘记开始的内容，常见的做法是让模型**把之前的对话做压缩总结，只保留关键信息**，这个被压缩的关键信息被称为 Memory。
 
-模型不是按字读，也不是按词读，是按 Token 读。
+# RAG (检索增强生成)
 
-Token 是大模型处理文本的最小单位。一个汉字通常是 1-2 个 token，一个英文单词可能是 1-3 个 token。代码、标点、特殊符号，各有各的切分规则。
+模型能读取私有资料，让回答更加真实可靠，先把资料切成小片段存进知识库，当提问时系统检索出最相关的片段，作为背景资料和问题拼接，模型阅读这段增强后的上下文，会生成更准确的回复。
 
-大模型的一切都按 Token 计量:
-- 计费按 Token 算。
-- 上下文窗口的大小按 Token 算。
-- API 的速率限制也按 Token 算。
+# Function Calling (函数调用)
 
-# Tools
-
-没有工具，cc 就只能输出文本，那它就是一个大语言模型。
-
-1.文件操作
-   读、写、删、搜。
-   本地文件的生命周期管理。
-2.搜索
-   代码库、文件名、文档内容。
-   精准定位任何资源。
-3.执行
-   shell 命令、运行测试、启动服务器。
-4.网络搜索
-   实时搜索网页内容、获取最新信息。
-   
- 有了 Tools 能感觉 cc 能操作我的电脑了，agent 能操作的是系统软件，不能操作下载的软件，比如剪辑、Word 等，第三方软件会有内置的 AI 功能，但是不太可能开方 API 给第三方 Agent 操作。
- 
-# Skill
-
-Skill是 在 Agent 和 MCP 之上的进一步抽象。可以把 Skills 理解为 **“顶级的AI专家大脑”**，它是一个自包含的功能模块，包含的不仅仅是提示词，还有知识、方法和工具，这一切都被打包在一个结构清晰的文件夹里：
-
-```text
-skill-name/
-├── SKILL.md        # 核心：工作指令、方法论和元数据[reference:1][reference:2]
-├── scripts/        # 辅助脚本，Claude 可直接调用[reference:3]
-├── templates/      # 文档、代码生成模板[reference:4]
-└── resources/      # API 文档、架构图等参考材料[reference:5]
-```
-- **SKILL.md**：是整个 Skills 的 **“核心大脑”**，它用纯文本告诉 AI 这个技能是什么、什么情况下触发、该如何一步步完成任务。
-    
-- **辅助资源**：`scripts/`（比如执行复杂计算）、`templates/`（比如生成标准报告）、`resources/`（比如API规范）进一步支持任务执行。
-
-Skill 把 Agent 的某个能力封装成一个可复用的"技能包"——就像手机上的 App，装上就能用。
-每个 Skill 定义了：能做什么、需要什么输入、输出什么格式、依赖哪些工具。
-
-有了 Skill:
-  - 不同 Agent 之间可以共享能力。
-  - 新 Agent 不用从零开发，组合现有 Skill 就行。
-  - 能力可以独立升级，不影响其他部分。
-
-# 快捷键命令
-
- 模板：/ + 预设好的指令。
- 
- /clear 清空上下文，开新对话
- /compact 压缩上下文，释放空间
- /context 查看上下文使用量
- /rewind 回滚到历史节点
- /resume 恢复上次会话
- /rename 为会话命名
- /model  切换 AI 模型
- /cost 查看费用和用量
- /plan 进入 plan 模式
- /init 初始化 claude.md
- /permissions 管理工具权限
- /mcp 管理 MCP 连接
- 
-# 历史记录和恢复
- 
-随时接力，无缝衔接上一次的工作。
-
-claude -c  继续上次会话
-
-cluade -r 找回历史会话
-
- /rename 给会话起名字
-
-## CLAUDE.md
-
-项目背景每次启动都会读一遍
-
-1.项目背景
-2.依赖与命令
-3.验证命令
-4.风格与禁忌
-
-## MEMORY.md
-自动记忆功能，干活的过程中，cc 会自己总结经验 ./claude/project name/memory/，自动触发无需手动干预
+ 让大模型具备接入外部工具的能力。
 
 # MCP 服务器
 
-突破本地边界，工具对接的"USB 协议"。
+模型上下文协议。突破本地边界，工具对接的"USB 协议"。
 
-默认只能碰本地文件，与云端服务隔离。MCP 连接直接连通 Notion、GitHub 数据库、搜索，丝滑操作。
+让所有第三方工具的接口统一，AI 程序只需要对接 MCP 这一个协议，就能调用所有使用同一接口的工具。
 
-# SubAgent(子 Agent)
+**与 FC 的区别**
+
+ FC：让模型按照约定格式输出调用指令。
+ MCP：让所有工具都遵循同一种格式。
  
-派一个干净的分身去干活，会继承主对话的权限和模型，向主代理进行单线程的汇报。
-/plan 模式切换。
+# Harness Engineering (驾驭工程)
 
-# Agent Teams(多会话组队协作)
-   
-实验性，行为复杂不可控
+提供最全面的上下文给模型，避免其失忆，同时给 Agent 划定边界，自动验收任务成果给出反馈，并引导修复。
 
-# 检查点:每次改动自动存档
+# AI Agent
 
-按两下 ESC 或者 /rewind -> 弹出历史列表 -> 选择节点回滚。
-只跟踪 cc 编辑过的文件，不跟踪 bash 命令，只保留 30 天。
+直接运行在电脑里的执行者，可以对本地文件进行增删改查、安装依赖，只需要提出要求它就会一步步执行、迭代直到完成，**这种能自主操作计算机、完成实际任务的形态，就是大家常说的 AI Agent**。
 
-大型项目要配合 Git 使用。
+# AI Agent 形态
 
-# 工具和模型是什么关系
+## 终端使用(CLI)
 
-## 关系
+终端 CLI（Command-Line Interface，命令行界面）本身就是一种通过键盘输入指令与计算机交互的轻量级方式。终端是一个文本窗口，专门用来运行各种命令行程序，输入命令程序把结果显示出来。
 
-工具和模型是两个可以自由组合的独立部分。
+**终端 CLI 为 AI Agent 提供了“手”，而 Android CLI 则是专为 Android 生态打造的一双“高效之手”**。
 
-这种“解耦”让工具的“大脑”不再是固定的，可以根据不同任务自由更换。你可以把它们想象成“工程大脑”和“专业知识大脑”的完美协作。
+## 桌面应用使用(GUI)
 
-- **工程大脑：指挥系统 (AI 工具层)**  
-    这部分像项目的总工程师，它不关心具体知识细节，只负责全局指挥。
-    
-    - **核心职责**：理解你的自然语言指令、在项目中自动翻阅分析代码、调用工具（修改文件、执行命令、搜索网络等）、规划任务步骤、并集成到你的开发流程（如 IDE 和 Git）。
-        
-    - **实现者**：Claude Code(内置强大工作流的典范)、OpenClaw(可托管的后台数字员工）、GitHub Copilot、Cursor 等。
-- **专业知识大脑：执行引擎 (AI 模型层)**  
-    这部分像各领域的“外聘专家”，在总工程师的指挥下，运用其专业知识具体执行任务。
-    
-    - **核心职责**：具体执行任务，如代码生成、错误分析、推理、文本润色、文件操作等。
-        
-    - **实现者**：各种大语言模型 (LLMs)，如 Claude Opus、GPT-5、DeepSeek-V4、智谱 GLM-5 等。
+Claude Code 桌面端，CodeX 桌面端、Cursor。
 
-## 组合原理
+# Skill (技能)
 
-那么，这两个独立的部分是如何组合在一起的？答案就在于 **统一“接口标准” + “中间层适配”** 的架构。
+## 什么是 Skill
 
-- **通过通用“API 协议”连接**：**“工程大脑”需要通过一个通用的接口 API 来调用 “专业知识大脑”**。只要模型提供商提供的 API 符合这个通用协议(如 OpenAI 或 Anthropic 的 API 规范），就能轻松对接。
-- **借助中间层实现智能调度与核心替换**：更灵活的组合，离不开中间的“适配器”或“中间件”。它们主要负责：
-    
-    - **协议转换**：**将“工程大脑”的指令，转换成各种“专业大脑”都能理解的 API 调用格式**。
-        
-    - **智能路由**：**将任务请求智能转发并使用更好的模型处理特定任务**，降低切换成本。
-        
-    - **Claude Code 变通接入国产模型**：尽管受限于地区，Claude Code 还是能够通过设置 API Base URL 等环境变量变通接入兼容 Anthropic 协议的国产模型。
+Skill 是 在 Agent 和 MCP 之上的进一步抽象。可以把 Skill 理解为 **“顶级的AI专家大脑”**，它是一个自包含的功能模块，包含的**不仅仅是提示词**，还有**知识、方法和工具**，这一切都被打包在一个结构清晰的文件夹里：
 
-## 实战玩法：自由搭配的几种方式
-
-- **方式一：直接替换**
-    
-    - **配置**：在“工程大脑”(如Claude Code)的配置文件(`.claude.json`)里修改几行环境变量，指向另一个模型的 API 地址和密钥。
-        
-    - **示例**：从高昂的 Claude Opus 切换到国产 DeepSeek，可大幅降低成本。相比原生 Claude Opus 每百万 Tokens $15 的高昂 API 费用，开源方案甚至能实现长期低成本使用。
-- **方式二：多模型 + 智能路由（“模型专家团”模式）**
-    
-    - **原理**：这是更高阶的模式。一个智能路由器会在中间坐镇，分析每个任务的特点。
-        
-    - **示例**：综合运用 Claude 大上下文总结信息、国产开源模型自动化建表、联网搜索模型进行最新咨询搜索，发挥各模型优势。
-
-# 统一“接口标准” + “中间层适配” 的架构如何理解
-
-它本质上是**将“调用约定”与“内部实现”解耦**，使得前端工具(如Claude Code)和后端模型(如DeepSeek)可以像乐高一样自由组合。
-
-## 1. 统一接口标准：定义“通用语言”
-
-接口标准是一套**双方都认可的通信协议**，包括：
-
-- **API 端点格式**（URL、HTTP 方法）
-    
-- **请求/响应数据结构**（JSON Schema）
-    
-- **认证方式**（API Key、Bearer Token）
-    
-- **错误码约定**
-    
-- **流式/非流式传输规则**
-
-目前业界最流行的是 **OpenAI Chat Completion API 规范**（被绝大多数模型厂商支持），以及 **Anthropic 的 Message API 规范**。
-
-举个例子（OpenAI 风格）
-
-```java
-POST https://api.openai.com/v1/chat/completions
-Authorization: Bearer sk-xxx
-Content-Type: application/json
-
-{
-  "model": "gpt-4",
-  "messages": [{"role": "user", "content": "Hello"}],
-  "stream": false
-}
+```text
+skill-name/
+├── SKILL.md        # 核心：工作指令、方法论和元数据
+├── scripts/            # 辅助脚本，Claude 可直接调用
+├── templates/      # 文档、代码生成模板
+└── resources/      # API 文档、架构图等参考材料
 ```
-
-返回：
-```java
-{
-  "id": "chatcmpl-xxx",
-  "choices": [{"message": {"role": "assistant", "content": "Hi there!"}}]
-}
-```
-
-**任何模型厂商只要实现这套 API 规范**（比如 DeepSeek、智谱、MiniMax 都提供了完全兼容的端点），那么原本为 OpenAI 写的工具就可以“零修改”接入这些模型。
-
-## 2. 中间层适配器：解决“方言”差异的翻译官
-
-虽然有了“通用语言”，但现实是：
-
-- 某些工具(如 Claude Code)官方只支持 **Anthropic 的 Message API**(一种不同的接口标准)。
+- **SKILL.md**：是整个 Skill 的 **“核心大脑”**，它用纯文本告诉 AI 这个技能是什么、什么情况下触发、该如何一步步完成任务。
     
-- 而国产模型大多提供 **OpenAI 风格**的 API。
+- **辅助资源**：`scripts/`（比如执行复杂计算）、`templates/`（比如生成标准报告）、`resources/`（比如API 规范）进一步支持任务执行。
+
+> 打个比方：一个“Android代码审查” Skill，它的`SKILL.md`会详细定义审查流程；`scripts/`可能包含一个自动化检查脚本；`templates/`提供审查报告的格式模板。
+
+## Skill 如何“自动生效”的
+
+1. **自动发现 (Auto-discovery)**: 当 Claude Code 启动时，它会主动扫描特定的“技能库”（即目录），找到其中所有的 Skill 并记录在案。
     
-- 甚至有些老模型只支持自定义的 RPC 格式。
-
-于是就需要一个**中间层适配器**——它像“万能插头”：
-
-- **输入端**：监听工具发来的请求(例如 Anthropic 风格)
+    - **个人级 (Personal)**: `~/.claude/skills/`，你个人的专属神器，所有项目都能用。
+        
+    - **项目级 (Project)**: `<YourProject>/.claude/skills/`，跟随项目，团队成员共享。
+        
+    - **插件级 (Plugin)**: `plugin-name/skills/`，随用随装，即装即用。
     
-- **输出端**：将请求转换成目标模型能理解的形式(例如 OpenAI 风格)，并把模型的响应再转换回工具期望的格式。
+2. **智能判断 (Auto-invoke)**: 发现后，它会**根据你的对话内容，判断是否需要激活**某个 Skill。这背后是 **渐进式加载 (Progressive Loading)** 理念：启动时只加载`SKILL.md`中的`name`和`description`（开销极小），当判断需要时，才会加载`SKILL.md`的**完整内容**执行任务。
+    
+3. **“热重载” (Hot Reload)**: 开发`SKILL.md`时，修改可以**立刻生效，完全无需重启**Claude Code，实现边写边用。
 
-## 3. 实战流程：Claude Code → 中间层 → DeepSeek
+## Skill 与 Subagents：动脑和动手的分工
 
-有一个 Claude Code(只认 Anthropic API），想让它使用 DeepSeek(只认 OpenAI API)。步骤如下：
+- **Skills (指导如何做)**: 一个“高级方法专家”。它封装了特定的知识和流程，让 AI 知道**用什么方法可以最高效地搞定一件事**。
+    
+- **Subagents (动手去执行)**: 一个真正的“独立外包团队”。当任务复杂凌乱，会启动一个干净的隔离环境（**Subagent**）去执行。任务完成后它自动销毁，并将干净的结果返回给主会话，确保核心上下文不被污染。
+    
+- **两者关系**: 可以理解为：**主 AI 阅读 SKILL.md（方法），转而分派给 Subagent（执行团队）去完成**。
 
-第一步：启动一个中间层适配器。
-第二步：配置 Claude Code 指向该中间层。
-第三步：调用流程详解：
-1. **Claude Code 发起请求**（Anthropic 格式）  
-    `POST /v1/messages`  
-    Body: `{"model": "claude-3", "messages": [...]}`
-2. **中间层收到后**：
-    - 解析 Anthropic 格式 → 提取 `messages`、`system` 等。
-        
-    - 重构为 OpenAI 格式 → `{"model": "deepseek-chat", "messages": [...]}`
-        
-    - 附带你的 DeepSeek API Key，转发到 `https://api.deepseek.com/v1/chat/completions`
-3. **DeepSeek 返回 OpenAI 格式**：  
-    `{"choices": [{"message": {"content": "..."}}]}`
-4. **中间层再次转换**：
-    - 提取 `content` → 封装成 Anthropic 的 `{ "content": [{"text": "..."}] }`
-        
-    - 返回给 Claude Code
-5. **Claude Code 完全无感知**，以为自己在和 Claude 模型对话。
-
-# 如何创造一个 Skill 技能包
+## 如何创造一个 Skill 技能包
 
 开发一个Skills技能包，确实有一套清晰的流程。简单来说就是**选择场景 → 创建骨架 → 填充内容 → 调试优化 → 分享**这五个步骤。
 
 它的核心是一个包含结构化`SKILL.md`文件的文件夹，放在特定位置（如项目下的`.claude/skills/`），Claude 就能自动发现并使用了。
 
-## 选择技能场景
+### 选择技能场景
 
 一个好的技能源于一个**重复性**的任务。如果某个任务你经常需要向 Claude 解释怎么做，那么它就适合被打包成技能。
 
@@ -318,7 +172,7 @@ Content-Type: application/json
     
 - **好的实践**：可以尝试从**代码审查** (Code Review) 或**提交信息生成** (Commit Message Generator) 这类场景开始，很容易看到效果。
 
-## 创建技能包骨架
+### 创建技能包骨架
 
 确定目标后，我们来创建这个技能的“骨架”。
 
@@ -328,25 +182,25 @@ Content-Type: application/json
 .your-project/
 └── .claude/
     └── skills/
-        └── your-skill-name/    # 技能名称，使用小写和连字符
-            ├── SKILL.md       # 核心指令文件 (必需)[reference:4]
-            ├── scripts/       # 可执行的辅助脚本 (Python, Bash等)
+        └── your-skill-name/     # 技能名称，使用小写和连字符
+            ├── SKILL.md       # 核心指令文件 (必需)
+            ├── scripts/           # 可执行的辅助脚本 (Python, Bash等)
             ├── templates/     # 代码或文档的生成模板
-            └── references/    # 供参考的API文档、架构图等
+            └── references/   # 供参考的API文档、架构图等
 ```
 
-## 编写核心文件 `SKILL.md`
+### 编写核心文件 `SKILL.md`
 
-这是技能的“大脑”，它由两部分组成：YAML 元数据(Frontmatter)和 Markdown 指令体(Body)。
+这是技能的“大脑”，它由两部分组成：YAML 元数据(Frontmatter) 和 Markdown 指令体(Body)。
 
 **1. YAML 元数据 (Frontmatter)** - 技能的身份证
 
-这个部分在文件顶部，由`---`包裹。它包含的信息虽然不直接给 Claude 看，但决定了技能是否能被正确触发。
+这个部分**在文件顶部，由`---`包裹**。它包含的信息虽然不直接给 Claude 看，但决定了技能是否能被正确触发。
 
 **必填字段**：
 
 - `name`: 技能的唯一标识，用短横线连接的小写英文，如`android-code-reviewer`。
-- `description`: **最重要的字段**，它告诉 Claude 这个技能的功能和使用时机。为了 Claude 能更准确地自动调用，描述可以**略微“夸张”**，**明确列出触发关键词**(如`react-native`, `Android`, `performance`等），并简洁说明核心价值。
+- `description`: **最重要的字段**，它告诉 Claude 这个技能的功能和使用时机。为了 Claude 能更准确地自动调用，描述可以**略微“夸张”**，**明确列出触发关键词**(如`react-native`, `Android`, `performance`等），**并简洁说明核心价值**。
 
 **可选字段**：
 - `allowed-tools`: 限制技能可用的工具，提高安全性。  
@@ -399,7 +253,7 @@ You are an expert Android engineer specializing in Kotlin, Jetpack Compose, and 
 - Do not suggest major architectural changes unless the codebase clearly suffers from them.
 - Focus on actionable feedback, not style preferences.
 ```
-## 测试与调试技能包
+### 测试与调试技能包
 
 - 在项目目录下启动 Claude，用`/你的技能名`(即你在`SKILL.md`中定义的`name`)来强制调用，验证功能是否符合预期。
 
@@ -409,7 +263,7 @@ You are an expert Android engineer specializing in Kotlin, Jetpack Compose, and 
 
 - 确保`SKILL.md`文件在正确的位置。
 
-## 部署和分享
+### 部署和分享
 
 技能包制作完成并测试满意后，就可以分享给团队或社区了。
 
@@ -417,13 +271,236 @@ You are an expert Android engineer specializing in Kotlin, Jetpack Compose, and 
 
 使用 `SKILL.md` 规范编写时，若需分发，可将整个技能文件夹打包为`.zip`文件。
 
-#  Vibe Coding 是什么
+# Cursor 如何开发 Android
 
-Vibe Coding更像是编程的一种**特定风格或哲学**，而AI Coding则是一个更**宽泛的技术概念**。
+**Cursor 缺乏编译、调试、SDK 智能提示**——正是因为它本质上是 VS Code 的分支，而非 Android Studio 的替代品。解决思路的核心是：**不要试图用 Cursor 取代 Android Studio，而是让它们各司其职，形成互补的工作流**。
 
-定义很明确：**不审查、不理解、直接 Accept AI 生成的代码**。
+**Cursor 负责思考与创作，Android Studio 负责验证与构建**。
+
+| 工作环节                  | 推荐工具               | 原因                                                        |
+| --------------------- | ------------------ | --------------------------------------------------------- |
+| **代码生成、重构、解释**        | **Cursor / CodeX** | AI Agent 擅长理解意图、处理复杂重构（如 RxJava 转 Flow）、生成模板代码。           |
+| **项目构建、编译、打包 APK**    | **Android Studio** | Android Studio 的 Gradle 集成、构建缓存和 AGP 深度优化，是 Cursor 无法替代的。 |
+| **调试、Logcat、性能分析**    | **Android Studio** | 原生的调试器、内存分析器、Layout Inspector 等功能无可替代。                    |
+| **XML 布局预览、SDK 源码查看** | **Android Studio** | Cursor 基于 VS Code，缺乏 Android 专属的渲染引擎和语义索引。                |
+| **SDK API 智能提示**      | **Android Studio** | Android Studio 的语义索引引擎能精确推导 API 用法和兼容性。                   |
+
+**“写代码时没有 SDK 智能提示，也无法查看源码”，这确实是 Cursor 的短板。**
+
+方案一：MCP Server 插件（最强互通）
+
+这是目前最推荐的方案，能让 Cursor 真正“读懂”你的 Android 项目。
+
+1. **在 Android Studio 中安装 `MCP Server` 插件**（Plugins → Marketplace 搜索 ID：26071）。
+    
+2. **在 Android Studio 右下角启动 MCP 服务**（默认本地端口）。
+    
+3. **在 Cursor 中配置 MCP 客户端**，连接到 AS 的本地服务。
+    
+4. 之后在 Cursor 中提问时，AI 就能感知 **完整的工程结构、Gradle 依赖、布局资源，甚至 Logcat 日志**，从而给出更精准的代码建议。
+
+## Cursor vs. CodeX：2026 年的选择建议
+
+两者定位不同，可以结合使用：
+
+- **Cursor：交互式、编辑优先的 AI IDE**。优势在于**实时代码补全、多文件重构、对话式调试**。适合日常的编码、理解和修改代码，体验流畅。
+    
+- **CodeX：执行密集型的终端 Agent**。优势在于**自动化执行 Gradle 任务、运行测试、处理繁琐的构建和部署工作**。它更适合被集成到 CI/CD 或作为终端助手使用。
+
+**建议**：以 **Cursor 作为主要的编码和思考工具**，同时将 **CodeX 作为终端里的自动化执行器**。两者都受益于 **Android CLI 1.0**，它允许 AI Agent 直接调用 Android Studio 的工具链（构建、调试、部署）。
+
+## 面向 Android 工程师的落地建议
+
+1. **第一步：选择你的工作流模式**
+    
+    - **模式 A（推荐新手）**：**在 Android Studio 内使用 Cursor Agent**。保留所有原生功能，逐步体验 AI 能力。
+        
+    - **模式 B（进阶）**：**双开 Cursor + Android Studio**。Cursor 编码，AS 验证。配合 **Switch2Cursor 插件**，可以在两个 IDE 间快速跳转。
+        
+    - **模式 C（终端流）**：**以 Cursor/CodeX CLI 为主**，通过 **Android CLI** 执行构建和部署命令。
+        
+2. **第二步：为 AI 注入“Android 领域知识”**  
+    Cursor 默认不知道你的项目架构和最佳实践。安装 **Agent Skills** 可以解决这个问题。例如，`awesome-android-agent-skills` 提供了 MVVM、Hilt、Compose 等标准化技能包，安装后 AI 会自动遵循你定义的架构模式生成代码。
+    
+3. **第三步：在 Cursor 中配置 Gradle 任务**  
+    在项目的 `.vscode/tasks.json` 中配置常用 Gradle 命令（如 `assembleDebug`、`installDebug`），之后在 Cursor 中按 `Ctrl+Shift+B` 即可触发构建，无需切换到 Android Studio 的终端。
+
+最终形成 **Cursor 生成代码 → Android Studio 编译运行 → 出错后反馈给 Cursor 修复**的完整闭环。
+
+# 快捷键命令
+
+ 模板：/ + 预设好的指令。
  
-![[Vide Coding VS AI Coding.png]]
+ /clear 清空上下文，开新对话
+ /compact 压缩上下文，释放空间
+ /context 查看上下文使用量
+ /rewind 回滚到历史节点
+ /resume 恢复上次会话
+ /rename 为会话命名
+ /model  切换 AI 模型
+ /cost 查看费用和用量
+ /plan 进入 plan 模式
+ /init 初始化 claude.md
+ /permissions 管理工具权限
+ /mcp 管理 MCP 连接
+
+# Agent Teams(多会话组队协作)
+   
+实验性，行为复杂不可控
+
+# 检查点:每次改动自动存档
+
+按两下 ESC 或者 /rewind -> 弹出历史列表 -> 选择节点回滚。
+只跟踪 cc 编辑过的文件，不跟踪 bash 命令，只保留 30 天。
+
+大型项目要配合 Git 使用。
+
+# 工具和模型是什么关系
+
+## 关系
+
+工具和模型是两个可以自由组合的独立部分。
+
+这种“解耦”让工具的“大脑”不再是固定的，可以根据不同任务自由更换。你可以把它们想象成“工程大脑”和“专业知识大脑”的完美协作。
+
+- **工程大脑：指挥系统 (AI 工具层)**  
+    这部分像项目的总工程师，它不关心具体知识细节，只负责全局指挥。
+    
+    - **核心职责**：理解你的自然语言指令、在项目中自动翻阅分析代码、调用工具（修改文件、执行命令、搜索网络等）、规划任务步骤、并集成到你的开发流程（如 IDE 和 Git）。
+        
+    - **实现者**：Claude Code(内置强大工作流的典范)、OpenClaw(可托管的后台数字员工）、GitHub Copilot、Cursor 等。
+- **专业知识大脑：执行引擎 (AI 模型层)**  
+    这部分像各领域的“外聘专家”，在总工程师的指挥下，运用其专业知识具体执行任务。
+    
+    - **核心职责**：具体执行任务，如代码生成、错误分析、推理、文本润色、文件操作等。
+        
+    - **实现者**：各种大语言模型 (LLMs)，如 Claude Opus、GPT-5、DeepSeek-V4、智谱 GLM-5 等。
+
+## 组合原理
+
+那么，这两个独立的部分是如何组合在一起的？答案就在于 **统一“接口标准” + “中间层适配”** 的架构。
+
+- **通过通用“API 协议”连接**：**“工程大脑”需要通过一个通用的接口 API 来调用 “专业知识大脑”**。只要模型提供商提供的 API 符合这个通用协议(如 OpenAI 或 Anthropic 的 API 规范），就能轻松对接。
+- **借助中间层实现智能调度与核心替换**：更灵活的组合，离不开中间的“适配器”或“中间件”。它们主要负责：
+    
+    - **协议转换**：**将“工程大脑”的指令，转换成各种“专业大脑”都能理解的 API 调用格式**。
+        
+    - **智能路由**：**将任务请求智能转发并使用更好的模型处理特定任务**，降低切换成本。
+        
+    - **Claude Code 变通接入国产模型**：尽管受限于地区，Claude Code 还是能够通过设置 API Base URL 等环境变量变通接入兼容 Anthropic 协议的国产模型。
+
+## 实战玩法：自由搭配的几种方式
+
+- **方式一：直接替换**
+    
+    - **配置**：在“工程大脑” (如 Claude Code) 的配置文件(`.claude.json`)里修改几行环境变量，指向另一个模型的 API 地址和密钥。
+        
+    - **示例**：从高昂的 Claude Opus 切换到国产 DeepSeek，可大幅降低成本。相比原生 Claude Opus 每百万 Tokens $15 的高昂 API 费用，开源方案甚至能实现长期低成本使用。
+
+- **方式二：多模型 + 智能路由（“模型专家团”模式）**
+    
+    - **原理**：这是更高阶的模式。一个**智能路由器**会在中间坐镇，分析每个任务的特点。
+        
+    - **示例**：综合运用 Claude 大上下文总结信息、国产开源模型自动化建表、联网搜索模型进行最新咨询搜索，发挥各模型优势。
+
+# 统一“接口标准” + “中间层适配” 的架构如何理解
+
+它本质上是**将“调用约定”与“内部实现”解耦**，使得前端工具(如 Claude Code)和后端模型(如DeepSeek)可以**像乐高一样自由组合**。
+
+## 1. 统一接口标准：定义“通用语言”
+
+接口标准是一套**双方都认可的通信协议**，包括：
+
+- **API 端点格式**（URL、HTTP 方法）
+    
+- **请求/响应数据结构**（JSON Schema）
+    
+- **认证方式**（API Key、Bearer Token）
+    
+- **错误码约定**
+    
+- **流式/非流式传输规则**
+
+目前业界最流行的是 
+
+ **OpenAI Chat Completion API 规范**（被绝大多数模型厂商支持）
+ 
+ **Anthropic 的 Message API 规范**。
+
+举个例子（OpenAI 风格）
+
+```java
+POST https://api.openai.com/v1/chat/completions
+Authorization: Bearer sk-xxx
+Content-Type: application/json
+
+{
+  "model": "gpt-4",
+  "messages": [{"role": "user", "content": "Hello"}],
+  "stream": false
+}
+```
+
+返回：
+```java
+{
+  "id": "chatcmpl-xxx",
+  "choices": [{"message": {"role": "assistant", "content": "Hi there!"}}]
+}
+```
+
+**任何模型厂商只要实现这套 API 规范**（比如 DeepSeek、智谱、MiniMax 都提供了完全兼容的端点），那么原本为 OpenAI 写的工具就可以“零修改”接入这些模型。
+
+## 2. 中间层适配器：解决“方言”差异的翻译官
+
+虽然有了“通用语言”，但现实是：
+
+- 某些工具(如 Claude Code)官方只支持 **Anthropic 的 Message API**(一种不同的接口标准)。
+    
+- 而国产模型大多提供 **OpenAI 风格**的 API。
+    
+- 甚至有些老模型只支持自定义的 RPC 格式。
+
+于是就需要一个**中间层适配器**——它像“万能插头”：
+
+- **输入端**：监听工具发来的请求(例如 Anthropic 风格)
+    
+- **输出端**：将**请求转换成目标模型能理解的形式**(例如 OpenAI 风格)，并把**模型的响应再转换回工具期望的格式**。
+
+## 3. 实战流程：Claude Code → 中间层 → DeepSeek
+
+有一个 Claude Code(只认 Anthropic API），想让它使用 DeepSeek(只认 OpenAI API)。步骤如下：
+
+第一步：启动一个中间层适配器。
+
+第二步：配置 Claude Code 指向该中间层。
+
+第三步：调用流程详解：
+
+1. **Claude Code 发起请求**（Anthropic 格式）  
+
+   `POST /v1/messages`  
+    Body: `{"model": "claude-3", "messages": [...]}`
+
+2. **中间层收到后**：
+
+    - 解析 Anthropic 格式 → 提取 `messages`、`system` 等。
+        
+    - 重构为 OpenAI 格式 → `{"model": "deepseek-chat", "messages": [...]}`
+        
+    - 附带你的 DeepSeek API Key，转发到 `https://api.deepseek.com/v1/chat/completions`
+
+3. **DeepSeek 返回 OpenAI 格式**：  
+
+    `{"choices": [{"message": {"content": "..."}}]}`
+
+4. **中间层再次转换**：
+
+    - 提取 `content` → 封装成 Anthropic 的 `{ "content": [{"text": "..."}] }`
+        
+    - 返回给 Claude Code
+
+5. **Claude Code 完全无感知**，以为自己在和 Claude 模型对话。
 
 # AI 越来越强，你的优势到底是什么
 

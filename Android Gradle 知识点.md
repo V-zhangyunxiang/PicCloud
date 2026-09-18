@@ -3,7 +3,7 @@
 
 **Gradle 是一个基于 JVM 的现代化自动化构建工具**，它解决了传统构建工具（如 Ant、Maven）在灵活性、性能和可维护性上的痛点，并凭借其强大的特点，成为了 Android 开发的官方构建系统。
 
-在软件工程中，**构建(Build) 是指将源代码(.java/.kt)转换为可执行软件(.apk/.jar)的过程**。这个过程涉及编译、资源处理、字节码混淆、打包、测试、部署等一系列繁琐步骤。
+在软件工程中，**构建(Build) 是指将源代码(.java/.kt)转换为可执行软件(.apk/.jar)的过程**。这个过程涉及**编译、资源处理、字节码混淆、打包、测试、部署**等一系列繁琐步骤。
 
 在Gradle出现之前，主流构建工具有两个，但它们都有明显的硬伤：
 
@@ -29,13 +29,20 @@ Maven 用 XML 配置，结构臃肿且逻辑表达能力极差。Gradle 直接�
 
 **2. 极致的性能(增量构建 & 构建缓存)**
 
-这是Gradle的“杀手锏”。大型项目每次全量编译要几分钟，Gradle引入了**增量构建(Incremental Build) 机制**：
+这是 Gradle 的“杀手锏”。大型项目每次全量编译要几分钟，Gradle引入了**增量构建(Incremental Build) 机制**大幅减少重复构建的时间：
 
 - 它会记录每个任务（Task）的输入（源码）和输出（class文件）的指纹（哈希值）。
     
-- 如果输入没变，下次构建时**直接跳过该任务**。
+- 如果输入和输入没变，下次构建时**直接跳过该任务**。如果发生变化，则重新执行该任务。
     
 - 配合 **构建缓存(Build Cache)**，甚至可以将其他人编译好的产物直接拿来复用，在大型团队中构建速度能提升数十倍。
+
+**两者区别：**
+
+**增量构建**仅复用**当前项目的上次构建**结果。
+
+**构建缓存**是 Gradle 的跨构建/跨项目缓存机制，用于存储任务的输出产物，可在**不同构建（如多次执行 assembleRelease）或不同项目间**复用，进一步减少重复计算。
+
 
 **3. 基于任务(Task)的有向无环图(DAG)**
 
@@ -221,16 +228,17 @@ Gradle 本身配置：比如 Gradle 守护程序的最大堆大小、编译缓�
 版本管理：可以从 `gradle.properties` 文件中读取版本，不仅可以作用于依赖库，也可作用于依赖插件。本质上是`key-value`形式的参数。
 
 ```text
-org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-android.useAndroidX=true
-android.enableJetifier=true
-kotlin.code.style=official
-#并行编译 
-org.gradle.parallel=true 
-#构建缓存 
-org.gradle.caching=true
-//版本设置
-zyxPluginVersion="1.0.0"
+//功能开关
+android.useAndroidX=true  //使用 AndroidX 库
+android.enableJetifier=true //自动迁移第三方库到 AndroidX
+kotlin.code.style = official
+//编译性能配置
+org.gradle.jvmargs=-Xms1024m -Xmx4096m -XX:MaxMetaspaceSize=1024m  // 设置 Gradle 守护进程最大堆内存
+org.gradle.parallel=true // 并行编译 
+org.gradle.caching=true //构建缓存 
+org.gradle.daemon=true   //守护进程
+org.gradle.unsafe.configuration-cache=true //启动配置缓存
+zyxPluginVersion="1.0.0" ////版本设置
 ```
 ## local.properties
 
@@ -246,6 +254,16 @@ isRelease=true
 #isDebug=false 
 #isH5Debug=false
 ```
+
+## 根目录下的 .gradle 文件夹
+
+是 Gradle 的本地缓存目录，存储构建过程中产生的临时文件和缓存数据。
+
+删除.gradle文件夹的影响：  
+
+短期影响：构建速度下降，因为缓存失效，Gradle 需要重新下载依赖库、插件和 Gradle 发行包，重新生成所有中间产物（如编译后的 class 文件），首次构建时间会显著增加（可能从几秒变为几分钟）。  
+
+长期无风险：.gradle 文件夹的内容均为“可重新生成的缓存”，删除后不会破坏项目源码或配置文件，后续构建时 Gradle 会自动重建该文件夹及内容。
 
 # Gradle(Project)+setting.gradle 7.x 后配置变化
 
@@ -278,7 +296,7 @@ isRelease=true
 
 ## 三、`pluginManagement` 和 `dependencyResolutionManagement` 的含义及对应关系
 
-1.`pluginManagement`
+`pluginManagement`
 
 - **含义**：专门用于管理 Gradle 插件的**解析规则**和**版本**。它告诉 Gradle 去哪里下载插件（如 `com.android.application`、`org.jetbrains.kotlin.android`），以及这些插件的默认版本。
 - **对应关系**：它并不完全替代 `buildscript` 块，而是与 `buildscript` 中的插件依赖**协同工作**。在旧写法中，插件通过 `buildscript { dependencies { classpath ... } }` 声明；**新写法中，推荐在 `settings.gradle` 的 `pluginManagement` 中统一声明插件仓库，然后在根 `build.gradle` 的 `plugins` 块中直接使用 `id` 和可选版本**，不再需要 `buildscript` 块。
@@ -286,7 +304,7 @@ isRelease=true
   - **新模式**：`pluginManagement` 负责提供插件解析的仓库和版本约束，`plugins { id '...' version '...' }` 直接使用。
 - **注意**：`pluginManagement` 是**可选的**，如果没有它，Gradle 会使用默认的插件解析机制（从 Gradle 插件门户、`buildscript` 仓库等）。
 
-2.`dependencyResolutionManagement`
+`dependencyResolutionManagement`
 
 - **含义**：集中管理**项目依赖的仓库**（即应用程序模块所依赖的第三方库，如 `androidx.appcompat` 从哪里下载）。它替代了老版本中 `allprojects` 块里的 `repositories` 声明。
 - **对应关系**：`dependencyResolutionManagement` 中的 `repositories` 块与 `allprojects { repositories }` **功能等效**，但作用域更可控（可以设置 `repositoriesMode` 来禁止模块单独声明仓库）。
@@ -788,6 +806,16 @@ dependencies {
 
 > 优先使用 `strictly` 来精确控制版本，并尽量避免使用 `force`。
 
+## 资源冲突
+
+同一模块或多个模块内资源名重复导致编译失败，搜索项目中所有 res/ 目录，查找同名资源，或在build.gradle 中配置资源前缀，避免冲突：
+
+```groovy
+android {
+   resourcePrefix "app_"   // 所有资源名必须以app_开头（如app_icon.png）
+}
+```
+
 # Gradle Task 
 
 ## 什么是 Task
@@ -975,7 +1003,7 @@ Gradle 插件是一个**可复用的构建逻辑单元**。它本质上是一段
 
 ## Gradle 插件有哪几种类型
 
-主要有两种类型：**脚本插件** 和 **二进制插件**。
+主要有两种类型：**脚本插件** 和 **二进制插件**。AGP 就属于二进制插件，封装了 Android 构建的所有逻辑。
 
 1. **脚本插件（Script Plugin）**
     
@@ -987,7 +1015,7 @@ Gradle 插件是一个**可复用的构建逻辑单元**。它本质上是一段
         
 2. **二进制插件（Binary Plugin）**
     
-    - **定义**：实现了 `Plugin<Project>` 接口的类，被打包成 Jar 文件。它可以是 `.jar` 文件、在 `buildSrc` 目录中，或发布到 Maven 仓库。
+    - **定义**：实现了 `Plugin<Project>` 接口的类，被打包成 Jar 文件，用 Java/Kotlin 编写，可实现复杂逻辑，在 `buildSrc` 目录中或发布到 Maven 仓库。
         
     - **作用**：这是官方推荐的**最佳实践**。它易于测试、版本管理，并且可以被多个项目安全地共享和使用。
 
@@ -1423,6 +1451,8 @@ android {
             versionNameSuffix = "-huawei"
             versionCode = 1
             buildConfigField("int", "CHANNEL_CODE", "1001")
+            // 动态替换资源（如strings.xml中的app_name）
+            resValue "string", "app_name", "MyApp huawei"
         }
         create("oppo") {
             dimension = "environment"
@@ -1430,6 +1460,7 @@ android {
             versionNameSuffix = "-oppo"
             versionCode = 1
             buildConfigField("int", "CHANNEL_CODE", "1002")
+            resValue "string", "app_name", "MyApp oppo"
         }
     }
 ```
