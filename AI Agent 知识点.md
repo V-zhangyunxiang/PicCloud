@@ -8,7 +8,7 @@ Vibe Coding 更像是编程的一种**特定风格或哲学**，而 AI Coding �
 
 # LLM (大语言模型)
 
-大语言模型将输入的文本拆解成 token，不是一个字也不完全等于一个词，每个 token 对应一个数字(Token ID)，大模型通过计算预测出一个 token 后面最应该接哪个，从而平凑出完整回答，在这个过程中你的提问就是 Prompt(提示词)，而想要让 LLM 回答的更准确，就需要描述好 Prompt，这套把话说清楚的理论就是 Prompt Engineering(提示词工程)，
+大语言模型将输入的文本拆解成 token，不是一个字也不完全等于一个词，每个 token 对应一个数字(Token ID)，大模型通过计算预测出一个 token 后面最应该接哪个，从而拼凑出完整回答，在这个过程中你的提问就是 Prompt(提示词)，而想要让 LLM 回答的更准确，就需要描述好 Prompt，这套把话说清楚的理论就是 Prompt Engineering(提示词工程)，
 
 # Token (词元)
 
@@ -38,17 +38,16 @@ Token 是大模型处理文本的最小单位。一个汉字通常是 1-2 个 to
   
 ## 两种提示词
  
-### 对话框提示词 
+### User Prompt (用户提示词)
 
- 临时的、发散的
- 当次对话有效
- 每次都要重新交代
- 
-### 系统提示词
+ - 临时的、发散的
+ - 当次对话有效
+ - 每次都要重新交代
+### System Prompt (系统提示词)
 
-AI 的底层人设
-每次启动都生效
-稳定输出的关键
+- AI 的底层人设
+- 每次启动都生效
+- 稳定输出的关键
 
 ## 最佳实践
 
@@ -58,7 +57,7 @@ AI 的底层人设
 
 **上下文 + 目标 + 约束条件。**
 
-Prompt 越具体，它才能干的越好，具体的前提是花时间学习相关领域的知识，没有人不会写作就能指挥 AI 写出好文章，没有人不会写代码就能通过 AI 写出好代码，**AI 能帮你学习但不是让你不用学习。**
+**Prompt 越具体，它才能干的越好**，具体的前提是花时间学习相关领域的知识，没有人不会写作就能指挥 AI 写出好文章，没有人不会写代码就能通过 AI 写出好代码，**AI 能帮你学习但不是让你不用学习。**
 
 # Context (上下文) + Memory (记忆)
 
@@ -78,18 +77,53 @@ Prompt 越具体，它才能干的越好，具体的前提是花时间学习相�
 
 # Function Calling (函数调用)
 
- 让大模型具备接入外部工具的能力。
+是**模型输出的一种结构化格式**。即使没有 Function Calling，模型和 Agent 之间也能用纯文本通信。Function Calling 只是让“调用工具”这个意图变得机器可解析。
 
-# MCP 服务器
+流程：Agent 把工具定义成 schema 给模型，模型用 Function Calling 格式返回调用意图。
 
-模型上下文协议。突破本地边界，工具对接的"USB 协议"。
+# MCP 
 
-让所有第三方工具的接口统一，AI 程序只需要对接 MCP 这一个协议，就能调用所有使用同一接口的工具。
+模型上下文协议。是工具对接的"USB 协议"。
 
-**与 FC 的区别**
+让所有第三方工具的接口统一。规范了 AI Agent 和 Tools 服务之间如何交互，运行 Tools 的服务叫 MCP Server，调用 Tools 的 Agent 叫 MCP Client，MCP 规定了 MCP Server 如何与 MCP Client 通信以及 MCP Server 要提供哪些接口。
 
- FC：让模型按照约定格式输出调用指令。
- MCP：让所有工具都遵循同一种格式。
+**与 FC 的关联**
+
+**MCP 通常建立在 Function Calling 之上**：MCP Server 暴露的工具，会被 Agent 转换成 Function Calling 的 Schema 给模型；模型返回【结构化的 Tool Call】(就是 JSON) 后，再由 MCP Client 通过 MCP 协议执行。
+
+> Schema 是“工具菜单”，Function Calling 是“点菜”。如果用户只是闲聊或问纯知识问题，Agent 可以不给菜单，模型也可以不点菜，直接回答。只有当 Agent 认为当前任务可能需要工具时，才会把 **工具定义(Schema)** 传给模型。
+
+## 两种流程
+
+**情况一：不需要工具（纯问答）**
+
+1. 用户 → Agent：“解释一下 Kotlin 的协程。”
+    
+2. Agent → 模型：只传 System Prompt + 用户问题，**不传工具 schema**，或传了但模型不调用。
+    
+3. 模型 → Agent：直接生成自然语言回答。
+    
+4. Agent → 用户：返回答案。
+    
+
+这里 **没有 Function Calling，也没有 MCP**。
+
+**情况二：需要工具**
+
+1. 用户 → Agent：“帮我查一下这个仓库最近的 issue。”
+    
+2. Agent → 模型：System Prompt + 用户问题 + **工具 schema 列表**。
+    
+3. 模型 → Agent：输出 **Function Calling** 结构化调用。
+    
+4. Agent → Tools（通过 MCP）：执行工具。
+    
+5. Tools → Agent → 模型：返回结果，模型再总结。
+    
+6. Agent → 用户：返回最终答案。
+    
+
+这里 **Function Calling 和 MCP 都出现了**。
  
 # Harness Engineering (驾驭工程)
 
@@ -124,7 +158,8 @@ skill-name/
 ├── templates/      # 文档、代码生成模板
 └── resources/      # API 文档、架构图等参考材料
 ```
-- **SKILL.md**：是整个 Skill 的 **“核心大脑”**，它用纯文本告诉 AI 这个技能是什么、什么情况下触发、该如何一步步完成任务。
+
+- **SKILL.md**：是整个 Skill 的 **“核心大脑”**，它用纯文本告诉 AI 这个技能是什么、什么情况下触发、该如何一步步完成任务。如果单个 skill.md 太大，还可以继续拆分出独立功能的 .md，在 skill.md  中声明在什么情况下可以去看这个独立功能的 .md 文件。
     
 - **辅助资源**：`scripts/`（比如执行复杂计算）、`templates/`（比如生成标准报告）、`resources/`（比如API 规范）进一步支持任务执行。
 
@@ -271,6 +306,25 @@ You are an expert Android engineer specializing in Kotlin, Jetpack Compose, and 
 
 使用 `SKILL.md` 规范编写时，若需分发，可将整个技能文件夹打包为`.zip`文件。
 
+# Agent 请求完整链路
+
+```text
+
+用户 → Agent → 模型
+              ↓
+        加载 Skill（工作手册）
+              ↓
+        模型决策：需要调用哪些 Tools
+              ↓
+        Function Calling（表达调用意图）
+              ↓
+        MCP（Agent 与 Tools 之间的通信）
+              ↓
+        Tools 执行（真正干活）
+              ↓
+        结果返回模型 → 按 Skill 格式输出 → 用户
+```
+
 # Cursor 如何开发 Android
 
 **Cursor 缺乏编译、调试、SDK 智能提示**——正是因为它本质上是 VS Code 的分支，而非 Android Studio 的替代品。解决思路的核心是：**不要试图用 Cursor 取代 Android Studio，而是让它们各司其职，形成互补的工作流**。
@@ -343,17 +397,6 @@ You are an expert Android engineer specializing in Kotlin, Jetpack Compose, and 
  /init 初始化 claude.md
  /permissions 管理工具权限
  /mcp 管理 MCP 连接
-
-# Agent Teams(多会话组队协作)
-   
-实验性，行为复杂不可控
-
-# 检查点:每次改动自动存档
-
-按两下 ESC 或者 /rewind -> 弹出历史列表 -> 选择节点回滚。
-只跟踪 cc 编辑过的文件，不跟踪 bash 命令，只保留 30 天。
-
-大型项目要配合 Git 使用。
 
 # 工具和模型是什么关系
 
