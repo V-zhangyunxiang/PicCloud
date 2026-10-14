@@ -279,8 +279,8 @@ Service 是 Android 的四大组件之一，必须由系统(AMS)负责实例化�
 
 | 概念                      | 核心定位                                         | 关键特点                                           | 当前状态 (2026年)                      |
 | ----------------------- | -------------------------------------------- | ---------------------------------------------- | --------------------------------- |
-| **`Service`**           | Android四大组件之一，用于执行后台任务的基础组件。                 | 分为**后台服务**和**前台服务**。普通后台服务在后台运行极易被系统限制。        | **不推荐**直接使用普通后台服务。                |
-| **`ForegroundService`** | 一种特殊的前台服务，用于执行用户可感知的、高优先级的任务[。               | 必须显示一个持续运行的通知，系统优先级高，不易被杀死。                    | **保留使用**，但仅限特定场景，且使用条件日益严格。       |
+| **`Service`**           | Android 四大组件之一，用于执行后台任务的基础组件。                | 分为**后台服务**和**前台服务**。普通后台服务在后台运行极易被系统限制。        | **不推荐**直接使用普通后台服务。                |
+| **`ForegroundService`** | 一种特殊的前台服务，用于执行用户可感知的、高优先级的任务。                | 必须显示一个持续运行的通知，系统优先级高，不易被杀死。                    | **保留使用**，但仅限特定场景，且使用条件日益严格。       |
 | **`WorkManager`**       | Android Jetpack 组件，用于处理**可延期**的后台任务。         | 自动选择最佳执行方式(JobScheduler 等)，保证任务执行，设备重启后任务仍可恢复。 | **官方首选**的通用后台任务解决方案。              |
 | **`ServiceCompat`**     | AndroidX 库中的辅助类，用于在旧版 API上兼容使用新版本Service 特性。 | 提供如`startForeground()`等方法的向后兼容版本。              | **过渡工具**，在新项目中直接使用AndroidX 核心库即可。 |
 ### 关系演变：为何用 WorkManager 取代普通 Service？
@@ -304,7 +304,7 @@ Service 是 Android 的四大组件之一，必须由系统(AMS)负责实例化�
 - **优势**：它会根据系统情况(如网络、电量)智能调度，保证任务一定会被执行，并且兼容从Android 4.0 (API 14) 开始的所有版本。
 #### 2. 特定场景：使用 `ForegroundService`
 
-只有当任务对用户**高度可见且必须立即执行**时，才应使用前台服务。常见场景包括：
+只有**当任务对用户高度可见且必须立即执行时**，才应使用前台服务。常见场景包括：
 
 - 音乐/视频播放 (`mediaPlayback`)
     
@@ -329,16 +329,16 @@ Service 是 Android 的四大组件之一，必须由系统(AMS)负责实例化�
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
 <application ...>
-    <!-- 4. 声明 Service，并显式指定类型（Android 14 强制要求），必须和实际做的事匹配，如果不匹配，               系统会抛出 ForegroundServiceTypeNotAllowedException。
+    <!-- 4. 声明 Service，并显式指定类型（Android 14 强制要求），foregroundServiceType 必须和实际做的事匹配，如果不匹配，系统会抛出 ForegroundServiceTypeNotAllowedException。
      -->
     <service
         android:name=".MyForegroundService"
-        android:foregroundServiceType="location"   <!-- 根据实际场景填写 -->
+        android:foregroundServiceType="location"   
         android:exported="false" />
 </application>
 ```
 
-2.编写 Service 类
+2.**编写 Service 类**
 
 写法和普通 `Service` 完全一样，只是必须在 `onCreate` 或 `onStartCommand` 中调用 `startForeground()`。
 
@@ -397,7 +397,7 @@ class MyForegroundService : Service() {
 }
 ```
 
-3.启动 Service
+3.**启动 Service**
 
 启动时**必须**使用 `startForegroundService()`，否则在 Android 8.0 以上会报错。服务启动后，必须在 **5 秒内**调用 `startForeground()`，否则系统会触发 ANR（应用无响应）。
 
@@ -414,7 +414,7 @@ if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 ContextCompat.startForegroundService(this, Intent(this, MyForegroundService::class.java))
 ```
 
-4.停止 Service
+4.**停止 Service**
 
 任务完成后，在 Service 内部调用 `stopSelf()`，或者外部调用 `stopService(intent)` 即可。
 
@@ -432,8 +432,48 @@ Android 广播主要分为四类：
 
 ## **广播接收者的 onReceive 方法里能做耗时操作吗？**
 
-`onReceive` 运行在主线程，且生命周期极短（通常只有 10 秒左右）。如果执行耗时操作会触发 **ANR**。
+不能，`onReceive` 运行在主线程，且生命周期极短（通常只有 10 秒左右）。如果执行耗时操作会触发 **ANR**。
 
+**正确做法**：
+
+- 短时间异步 → `goAsync()` + 子线程 + `finish()`；
+    
+- 可延期任务 → **`WorkManager`**（首选）；
+    
+- 必须立即执行且用户可感知 → 前台服务，但注意 Android 12+ 后台启动限制和 Android 14 类型声明。
+
+## goAsync 的异步机制是什么
+
+系统判断“广播处理完毕”的标志，就是 `onReceive()` 返回，一旦返回，系统可能立刻杀掉进程。**在这个方法里新开的线程也会被杀掉，普通写法是无效的**，`goAsync()` 的本质是：**把广播的生命周期从“onReceive 返回即结束”延长到“手动调用 finish 才结束”。**
+
+```kotlin
+class MyReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        // ① 申请延长生命周期，拿到凭证
+        val pendingResult = goAsync()
+
+        // ② 切换到子线程执行耗时操作
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // ③ 在这里做耗时操作（网络请求、读写文件等）
+                doHeavyWork()
+            } finally {
+                // ④ 无论成功失败，都必须调用 finish()
+                pendingResult.finish()
+            }
+        }
+    }
+}
+```
+
+必须用 `try/finally` 保证 `finish()` 一定被调用，因为如果 `doHeavyWork()` 抛异常，而 `finish()` 没执行，系统会认为广播一直没处理完。
+
+`goAsync()` **不是无限延长**，它仍然受广播 ANR 限制，超过这个时间不调用 `finish()`，系统会认为 ANR，直接杀掉进程。所以 `goAsync()` 只适合**短时间异步任务**（几秒内能完成）。如果任务可能超过 10 秒，应该用 `WorkManager`。
+
+| 广播类型 | 超时阈值   |
+| ---- | ------ |
+| 前台广播 | 约 10 秒 |
+| 后台广播 | 约 60 秒 |
 ## 广播动态注册和静态注册的区别
 
 **静态注册**
@@ -493,7 +533,8 @@ LocalBroadcastManager 已废弃，因其存在生命周期泄漏风险且性能�
 
 ### URI
 
-定义：`Uniform Resource Identifier`，即统一资源标识符，唯一标识 `ContentProvider` & 其中的数据。
+定义：`Uniform Resource Identifier`，即统一资源标识符，唯一标识 `ContentProvider` 和其中的数据。
+
 格式：`content://authority/path/id`
 
 - `content://`：标准前缀。
@@ -512,7 +553,7 @@ URI 模式存在匹配通配符 * & ＃
 作用：指定某个扩展名的文件用某种应用程序来打开。
 如指定`.html`文件采用`text`应用程序打开、指定`.pdf`文件采用`flash`应用程序打开。
 
-**`ContentProvider` 根据  `URI` 返回 `MIME` 类型**。
+**`ContentProvider` 根据 `URI` 返回 `MIME` 类型**。
 
 > ContentProvider.geType(uri);
 
@@ -1548,6 +1589,12 @@ OkHttp 使用责任链模式来组织拦截器，使得每个拦截器都能有�
 
 > 举例：我要请假先由主管审核，小于 3 天主管处理，主管设置了下一个处理人，大于 3 天主管处理不了则传递给经理审核，依次类推。
 
+### OkHttp 的优势是什么？为什么底层用 Socket 而不是封装 HttpURLConnection？
+
+**OkHttp 的优势**：连接池复用、拦截器链可扩展、支持 HTTP/2 和 WebSocket 等更多协议、超时和取消更精细、重试路由智能、跨平台行为一致。
+
+**为什么底层用 Socket 而不是封装 HttpURLConnection**：因为 `HttpURLConnection` 本身也是用 Socket，但它把 Socket 藏起来了。OkHttp 要实现连接池、HTTP/2 多路复用、真正的取消、TLS 精细控制、拦截器扩展，就必须**自己持有并管理 Socket**。封装 `HttpURLConnection` 的话，上面这些能力一个都做不了。
+
 ### App Interceptor 和 Network Interceptor 区别
 
 - **App Interceptor（应用拦截器）**：位于责任链最顶端。只会被调用一次，不关心重试或重定向。
@@ -1804,7 +1851,7 @@ Android UI 是单线程模型，所有 UI 操作必须在主线程执行，所�
 可以。
 
 *   在子线程更新在子线程创建的 View。
-*   **`checkThread`**方法是在 onResume 之后执行的，所以如果在 onCreate 中开子线程更新 UI，如果执行速度够快，有可能不报错但不可靠。
+*   `checkThread` 方法是在 onResume 之后执行的，所以如果在 onCreate 中开子线程更新 UI，如果执行速度够快，有可能不报错但不可靠。
 
 ### 子线程中更新 UI 的方式
 
@@ -1856,7 +1903,7 @@ Message.obtain() 及其衍生方法
 
 ### Looper.prepare 作用是什么
 
-- 创建 Looper 对象，将创建的 Looper 对象保存当前线程的 ThreadLocal 中。所以不同线程的 Looper 完全隔离，一个线程只能有一个 Looper，但可以有多个 Handler。
+- 创建 Looper 对象，将创建的 Looper 对象保存当前线程的 ThreadLocal 中。
 - 创建 MessageQueue 对象。
 
 ### 为什么 ThreadLocal 能隔离线程
@@ -1874,6 +1921,14 @@ ThreadLocal 是一个创建线程局部变量的类，该变量只能被当前�
 ### Looper 如何区分多个 Handler 的
 
 通过 msg.target 来区分，发送消息时 msg.target 被当前 Handler 赋值，分发消息时使用 msg.target 进行分发。
+
+### Looper、线程、Handler 之间的关系是什么
+
+Looper 和线程是一对一，一个线程最多只能有一个 Looper。
+
+Looper 和 Handler 是一对多，一个 Looper 可以被多个 Handler 绑定，所有 Handler 发送的消息都进入同一个 MessageQueue。
+
+Handler 和 Looper 是多对一，**每个 Handler 实例只绑定一个 Looper**，不能绑定多个。
 
 ### handler postDealy 假设先 postDelay 10s，再 postDelay 1s，队列怎么处理这 2 条消息
 
@@ -3303,7 +3358,7 @@ condition.signalAll(); // 唤醒所有等待线程
 
 **有序性**
 
-程序执行的顺序按照代码的先后顺序执行，指令重排序不会影响单个线程的执行，但是会影响到线程并发执行的正确性。
+程序执行的顺序按照代码的先后顺序执行，指令重排序不会影响单个线程的执行，但是会影响到多线程并发执行的正确性。
 
 ### 什么是 volatile，与 synchronized 的区别
 
@@ -3347,13 +3402,19 @@ CAS 指令需要有 3 个操作数，分别是内存地址 V、旧的预期值 A
 
 某个值原始值为 A，被修改成了 B，然后又被改成了 A，CAS 认为该值没有变更过，可以通过添加版本号来加强验证解决 ABA 问题。
 
-### sleep 与 wait 区别，notify 和 notifyAll 区别
+### sleep 与 wait 区别
 
-sleep 是Thread 类的方法，wait 是 Object 类的方法。
+| 维度       | `Thread.sleep()`                          | `Object.wait()`                                               |
+| -------- | ----------------------------------------- | ------------------------------------------------------------- |
+| **归属**   | `Thread` 的静态方法                            | `Object` 的实例方法                                                |
+| **调用条件** | 任意地方都可调用                                  | 必须在 `synchronized` 块/方法中，持有该对象锁                               |
+| **锁释放**  | ❌ 不释放任何锁                                  | ✅ 释放当前对象的监视器锁                                                 |
+| **线程状态** | `RUNNABLE` → `TIMED_WAITING` → `RUNNABLE` | 无超时：`WAITING`；带超时：`TIMED_WAITING`；被唤醒后：`BLOCKED` → `RUNNABLE` |
+| **唤醒方式** | 时间到自动醒                                    | 被 `notify()` / `notifyAll()` 唤醒，或超时、中断                        |
+| **中断响应** | 抛 `InterruptedException`，清除中断标志           | 同样抛 `InterruptedException`，清除中断标志；但抛异常前会重新获取锁                 |
+| **典型用途** | 单纯暂停执行、模拟延时                               | 线程间条件等待/通知                                                    |
 
-sleep 不会释放锁，到时间后会自动唤醒，wait 会释放锁并需要其它线程 notify/notifyAll 唤醒。
-
-sleep 通常用于让当前线程短暂停顿，wait 用于线程间的同步。
+### notify 和 notifyAll 区别
 
 notify 随机唤醒一个 wait 的线程。
 
@@ -3552,7 +3613,7 @@ data class User(val name: String, val age: Int)
     
 - 不能继承其他类（只能实现接口）。
 
-`data class` 可以包含方法和业务逻辑，只有当你的类**以行为为主、数据只是附带**，或者需要继承、复杂状态管理时，才用普通类。
+`data class` **可以包含方法和业务逻辑**，只有当你的类**以行为为主、数据只是附带**，或者需要**继承、复杂状态管理时，才用普通类**。
 
 ## 扩展函数的原理是什么
 
@@ -3561,6 +3622,7 @@ data class User(val name: String, val age: Int)
 编译器将其转换为静态方法，目标对象作为第一个参数传入，所以不会修改原有类的字节码。
 
 **局限性**
+
 - 无法访问私有成员
 - 不能被子类重写
 - 成员函数优先级高于扩展函数
@@ -3595,6 +3657,31 @@ Java 返回值在 Kotlin 中是平台类型，既可能是 String 也可能是 S
 
 @JvmOverloads： 注解生成带有重载方法的类，以便 Java 代码调用。
 
+## Kotlin 的 out T、in T 和 Java 通配符的区别
+
+**Kotlin 的协变（`out`）与逆变（`in`）在概念和作用上，完全等同于 Java 的上界通配符（`? extends T`）和下界通配符（`? super T`）。**
+
+| 概念     | Kotlin 关键字 | Java 通配符      | 核心记忆口诀             | 角色比喻                                        |
+| ------ | ---------- | ------------- | ------------------ | ------------------------------------------- |
+| **协变** | `out`      | `? extends T` | **生产者 (Producer)** | 只能往外取（读），不能往里放（写）                           |
+| **逆变** | `in`       | `? super T`   | **消费者 (Consumer)** | 只能往里放（写），不能往外取（读）——或者取出来只能是 `Object`/`Any?` |
+
+- **协变（`out`）的最底层是 `Nothing`**：`List<out Number>` 可以接收 `List<Nothing>`，因为 `Nothing` 是所有类型的子类。
+    
+- **逆变（`in`）的最顶层是 `Any?`**：`Comparable<in Number>` 可以接收 `Comparable<Any?>`，因为 `Any?` 是所有类型的父类，能比较任意对象当然能比较 `Number`。
+
+**Java（使用处型变）**：你只能在**使用泛型的时候**加通配符。如果类本身没写通配符，每次使用都得重复写，非常啰嗦。
+
+**Kotlin（声明处型变 + 使用处型变）**：你可以在**定义类的时候**就加上 `out` 或 `in`。这样在后续使用中，泛型关系自动生效，无需额外声明。
+
+## kotlin 中为什么没有 ? 无界通配符？
+
+**Kotlin 并不是没有无界通配符，它只是换了个写法——用 `*`（星投影）替代了 Java 的 `?`**。根本原因是 **`?` 在 Kotlin 中已经名花有主**，被用来表示可空类型了。
+
+**`*` 的读写规则遵循 PECS：只能读（返回 `Any?`），不能写（除 `null` 外）。**
+
+**Kotlin 的声明处型变（`out`/`in`）让大部分场景不需要显式通配符，直接写 `List<Any?>` 即可**。
+
 ## Kotlin 的委托是什么
 
 Kotlin 委托分两种
@@ -3613,15 +3700,36 @@ Kotlin 内置的三种属性委托
 
 3.Delegates.vetoable（可拦截）
 
-## 协程是什么，与线程的关系是什么，如何在 Android 中使用协程
+    ## 协程是什么，与线程的关系是什么，如何在 Android 中使用协程
 
-协程是 Kotlin 提供的**用户态轻量级并发单元**，运行在线程之上。与线程相比，协程创建开销极小，可以创建成千上万个；挂起时释放线程，线程可以去执行其他协程，极大提升了线程利用率。
+### 两者关系
+
+协程是 Kotlin 提供的**用户态轻量级并发单元**，运行在线程之上，它允许在单线程内通过**暂停-恢复机制实现多任务切换**，从而达到并发效果。
+
+与线程相比，协程创建开销极小，可以创建成千上万个。
+
+挂起时释放线程，线程可以去执行其他协程，极大提升了线程利用率。
 
 **核心特点**
- - 用同步的写法处理异步逻辑，告别回调地狱。
- - **结构化并发**。父协程取消时，所有子协程自动取消，不会有协程泄漏的问题。
 
-**在 Android 中的使用方式**
+ - **用同步的写法处理异步逻辑**。告别回调地狱。
+ - **结构化并发**。父协程取消时，所有子协程自动取消，不会有**协程泄漏**的问题。
+
+### 线程的缺点
+
+线程相对于协程，主要有**四个缺点**：
+
+1. **资源开销大**：每个线程默认约 1MB 栈内存，**创建、销毁需系统调用**，数量受限；而协程只有几十到几百字节，可以轻松创建数十万个。
+    
+2. **切换成本高**：线程是“内核态线程”，切换由**操作系统内核调度**；协程是“用户态任务”，切换由**用户态代码控制**，不依赖内核。
+    
+3. **阻塞式等待**：线程遇到 IO 会真正阻塞，占用线程资源，为了支持高并发只能不断创建新线程；协程是挂起，不阻塞线程，少量线程就能支撑大量并发。
+    
+4. **缺乏结构化并发**：线程启动后难以取消、错误默认不传播、生命周期需手动管理，容易内存泄漏；协程有父子 Job 层级，取消和异常会自动传播，生命周期由 CoroutineScope 统一管理。
+
+总结一句话：**线程是重量级、被动的执行单元；协程是轻量级、协作式的，用少量线程实现高并发，并且代码更安全、更简洁。**
+
+### 在 Android 中的使用方式
 
 - 在 Activity 或 Fragment 中使用 lifecycleScope。
 
@@ -3632,7 +3740,7 @@ Kotlin 内置的三种属性委托
   ```java
   class MySingleton {
       // 创建一个协程作用域，使用 IO 调度器，并持有顶级的 Job 以便于手动控制生命周期
-      private val coroutineScope = CoroutineScope(Dispatchers.IO + Job())
+      private val coroutineScope = CoroutineScope(Job() + Dispatchers.IO)
   
       // 示例方法，演示如何在单例中启动协程
       fun performBackgroundTask() {
@@ -3663,85 +3771,15 @@ Kotlin 内置的三种属性委托
   }
   ```
 
-## 协程中的 CoroutineScope、CoroutineContext、Job、Dispatchers 概念是什么意思
+## 协程中 CoroutineScope、CoroutineContext、Job、Dispatchers 概念如何理解
 
-**CoroutineScope = CoroutineContext + 生命周期控制能力**。
+### CoroutineScope-协程作用域
 
-### CoroutineContext
+所有协程都必须通过一个 Scope 来启动。
 
-一个**集合**(Set)，一个**执行环境**。
+核心作用是**管理协程的生命周期**，用于定义协程的运行边界（即协程能在什么范围内启动、运行和销毁）。
 
-定义了协程**如何运行**，里面存放了协程运行所需的各种关键信息。集合里的每一个元素都是一个 `Element`，最重要的几个 `Element` 包括:
-
-- **Job**: 控制协程的生命周期（比如取消）。
-    
-- **CoroutineDispatcher**: 决定协程在哪个或哪些线程上运行（比如 `Dispatchers.IO`）。
-    
-- **CoroutineName**: 给协程起个名字，方便调试。
-    
-- **CoroutineExceptionHandler**: 处理协程中未捕获的异常。
-
-**关键特性：** CoroutineContext 有一个非常重要的特性：**叠加**（通过 `+` 操作符）。当两个 Context 相加时，如果它们有相同 `Key` 的 Element（比如两个 Job），那么右边的会覆盖左边的。
-
-### Job
-
-一个**可取消的、有生命周期的任务**。启动一个协程，它会返回一个 Job 对象，通过 Job 对象可以执行：
-
-- 取消协程(`job.cancel()`)。
-    
-- 等待协程执行完毕(`job.join()`)。
-    
-- 查询协程的状态(是否活跃、是否完成、是否取消等)。
-
-包含 2 种类型：
-
-- 普通 `Job`：子协程失败会取消父协程，进而取消所有兄弟协程。
-- `SupervisorJob`：子协程失败不影响父协程和其他兄弟协程，各子协程独立。
-
-**Job vs SupervisorJob**
-
-| 方面       | Job             | SupervisorJob |
-| -------- | --------------- | ------------- |
-| 子 Job 失败 | 取消父 Job 和兄弟 Job | 仅影响该子 Job     |
-| 父 Job 取消 | 取消所有子 Job       | 取消所有子 Job     |
-| 异常处理     | 自动传播            | 必须逐个处理子 Job   |
-| 使用场景     | 应该一起失败的相关任务     | 独立任务          |
-| 典型场景     | 数据库事务           | 多个 API 调用     |
-###  Dispatchers
-
-**决定了协程运行的线程**。
-
-- `Dispatchers.Default`: **CPU 密集型**任务。它使用一个与 CPU 核心数相关的线程池。例如：排序、复杂计算。
-    
-- `Dispatchers.IO`: **I/O 密集型**任务。例如：网络请求、读写文件、数据库操作。它使用一个共享的、更大的线程池。
-    
-- `Dispatchers.Main`: **在主线程（UI线程）上运行**。用于更新 UI。需要在 Android、Swing 等有 UI 主循环的平台中使用。
-    
-- `Dispatchers.Unconfined`: 一个特殊的调度器，不限制任何特定线程，**不常用**。
-
-### CoroutineScope
-
-**定义了作用域的接口**，所有协程都必须通过一个 Scope 来启动。
-
-**管理协程的生命周期**，启动协程会创建一个新的 **Job**，这个新 Job 会成为父 Job 的**子项**。正是这种父子关系，构成了结构化并发的基础：取消父协程/Scope，会递归地取消所有子协程。
-
-##  launch 和 async 作用和区别
-
-**用于启动一个新的协程**。
-
-launch
-
-**执行一段“一劳永逸”的工作**，**不关心**最终结果。
-
-async
-
-**执行一段工作并“异步获取”它的返回值**。调用 `Deferred.await()` 来**获取结果**（`T` 是结果的类型）。`await()` 是一个挂起函数，它会等待计算完成并返回结果。
-
-## withContext 作用是什么
-
-一个**挂起函数**，**临时改变当前协程的执行上下文**(通常是线程)，用于**安全地在不同线程间切换**，并**返回一个结果**。
-
-代码模版
+启动协程会创建一个新的 **Job**，这个新 Job 会成为父 Job 的**子项**。正是这种父子关系，构成了结构化并发的基础：取消父协程/Scope，会递归地取消所有子协程。
 
 ```kotlin
 fun loadData() {
@@ -3765,6 +3803,436 @@ fun loadData() {
 }
 ```
 
+### CoroutineContext-协程上下文
+
+本质是一组键值对(Element)的集合，用于存储协程运行所需的所有配置信息。集合里的每一个元素都是一个 `Element`，最重要的几个 `Element` 包括:
+
+- **Job**: 控制协程的生命周期。
+    
+- **CoroutineDispatcher**: 决定协程在哪个线程上运行。
+    
+- **CoroutineName**: 给协程起个名字，方便调试。
+    
+- **CoroutineExceptionHandler**: 协程的异常处理器，统一捕获协程中的异常。
+
+**关键特性：** CoroutineContext 有一个非常重要的特性：**叠加**（通过 `+` 操作符）。当两个 Context 相加时，如果它们有相同 `Key` 的 Element（比如两个 Job），那么右边的会覆盖左边的。
+
+### Context 与 Scope 的关系是什么
+
+CoroutineScope 本质是对 CoroutineContext 的“包装”，它的核心字段就是 coroutineContext。协程会继承 Scope 的 Context (也可在启动时指定新的 Context 覆盖)。Scope = Context + 协程启动器(launch/async)，Context 是配置数据，Scope 是使用这些数据管理协程的工具。
+
+### Job-任务句柄
+
+是协程的“任务句柄”。启动一个协程，会返回一个 Job 对象，通过它可以跟踪协程状态、控制协程生命周期。
+
+- 取消协程(`job.cancel()`)。协作式取消，需协程内部配合。
+    
+- 等待协程执行完毕(`job.join()`)。类似 Java 的 Thread.join()，但 join() 是 suspend 函数，不阻塞线程）。
+    
+- 查询协程的状态(是否活跃、是否完成、是否取消等)。
+
+**协程的状态是一个有限状态机**，包括：
+
+New：协程已创建但未启动（仅通过 CoroutineStart.lazy 启动时会短暂处于此状态）。  
+
+Active：协程正在运行（大多数协程的主要状态）。  
+
+Completed：协程正常执行完毕（无异常）。  
+
+Cancelling：协程正在被取消（处于取消过程中，资源释放阶段）。  
+
+Cancelled：协程已被取消（最终状态）。
+
+状态流转图：New → Active → Completed 或 Active → Cancelling → Cancelled。
+
+**包含 2 种类型：**
+
+- 普通 `Job`：父协程取消会“递归取消所有子协程”，子协程失败会导致父协程取消，进而取消所有兄弟协程。异常会向上传播，形成“一损俱损”的效果。
+- `SupervisorJob`：父协程取消会“递归取消所有子协程”，但子协程失败不影响父协程和其他兄弟协程，各子协程独立。
+
+**Job vs SupervisorJob**
+
+| 方面       | Job             | SupervisorJob |
+| -------- | --------------- | ------------- |
+| 子 Job 失败 | 取消父 Job 和兄弟 Job | 仅影响该子 Job     |
+| 父 Job 取消 | 取消所有子 Job       | 取消所有子 Job(相同) |
+| 异常处理     | 自动传播            | 必须逐个处理子 Job   |
+| 使用场景     | 应该一起失败的相关任务     | 独立任务          |
+| 典型场景     | 数据库事务           | 多个 API 调用     |
+###  Dispatchers-调度器
+
+**决定了协程运行的线程**，未显式指定调度器时，则运行在当前线程中。
+
+- `Dispatchers.Default`: **CPU 密集型**任务。它使用一个与 CPU 核心数相关的线程池。例如：排序、复杂计算。
+    
+- `Dispatchers.IO`: **I/O 密集型**任务。例如：网络请求、读写文件、数据库操作。它使用一个共享的、更大的线程池。
+    
+- `Dispatchers.Main`: **在主线程（UI线程）上运行**，用于更新 UI。
+    
+- `Dispatchers.Unconfined`: 一个特殊的调度器，不限制任何特定线程，**不常用**。
+
+##  协程启动器 launch 和 async 的区别
+
+**用于在 CoroutineScope 中启动协程**。
+
+**launch-无返回值**
+
+**执行一段“一劳永逸”的工作**，不关心最终结果。异常会抛到作用域的异常处理器。
+
+**async-有返回值**
+
+**执行一段工作并“异步获取”它的返回值**。通过调用 `Deferred.await()` 来获取结果（`T` 是结果的类型）,**`await()` 是一个挂起函数，会暂停当前协程，任务完成后返回结果**。异常会被 Deferred 捕获，在调用 await() 是抛出。
+
+Deferred 是 Job 的子类，代表“有返回值的协程任务”，用于获取协程执行的结果（类似 Java 的Future）。Future.get() 是阻塞式的（会卡住当前线程），而 Deferred.await() 是暂停式的，效率更高。
+
+## withContext 函数的作用是什么
+
+**是一个“带返回值的线程切换工具”**，本质是一个 suspend 函数，用于在指定的 Dispatcher（线程）上执行代码块，并自动将结果返回给原线程（调用 withContext 的线程）。
+
+```kotlin
+scope.launch(Dispatchers.Main) { // 初始在主线程
+    // 切换到 IO 线程执行（自动暂停当前协程）
+    val data = withContext(Dispatchers.IO) { 
+        fetchDataFromNetwork() // IO 线程执行网络请求
+    }
+    // 自动切回主线程（原 Dispatcher），继续执行
+    updateUI(data) // 主线程更新 UI
+}
+```
+
+如果不使用 withContext，而是直接用 launch 启动新协程切换线程，需要通过 Job.join() 或Deferred.await() 等待结果，代码更繁琐：
+
+```kotlin
+scope.launch(Dispatchers.Main) {
+    //用 async 切换线程，需手动 await
+    val deferred = async(Dispatchers.IO) {
+     fetchDataFromNetwork() 
+     }
+    val data = deferred.await() // 需显式等待
+    updateUI(data)
+}
+```
+
+**withContext 的优势** 
+
+自动恢复原线程：无需手动管理线程切换的“来回”，代码更线性。  
+
+更简洁的返回值处理：直接将子线程结果作为函数返回值，避免 Deferred 的显式声明。  
+
+性能优化：withContext 会复用当前协程的状态机，比启动新协程（launch/async）更轻量。
+
+## delay 函数的作用是什么？
+
+delay(timeMillis) 是协程中用于“非阻塞等待”的 suspend 函数，作用是让当前协程暂停指定时间，时间到后自动恢复执行。
+
+##  什么是 suspend 函数？
+
+suspend 函数是被 Kotlin 编译器标记为“可暂停执行”的特殊函数，它可以在执行过程中“暂停”，让出线程给其他任务，稍后再从暂停点“恢复”执行。
+
+## 为什么 suspend 函数只能在协程或其他 suspend 函数中调用
+
+因为“暂停-恢复”依赖协程的状态机和上下文，而这些机制只有在协程内部才存在，协程本质是一个“状态机”，能保存暂停时的状态，普通函数没有状态机支持，无法处理“暂停-恢复”。因此，Kotlin 编译器会强制检查：若在非协程/非 suspend 函数中调用 suspend 函数，会直接报错。
+
+## suspend 函数和普通函数的区别是什么
+
+- suspend 函数可中途暂停，后续恢复，普通函数是一次性执行到底的(除非抛异常)。
+- suspend 函数暂停时不占用线程，普通函数执行时会一直占用线程直到返回。
+
+## suspend 函数的底层实现原理是什么
+
+Kotlin 编译器通过“CPS 转换”和“状态机生成”实现的，核心是将函数拆分为多个可断续执行的片段。
+
+编译器会为 suspend 函数添加一个 Continuation 参数（续体），用于保存“暂停后需要继续执行的逻辑”。若 suspend 函数内部有多个暂停点（如多次调用 suspend 函数），编译器会将函数拆分为多个“状态”，每个状态对应一个暂停点前后的逻辑。
+
+## 如何让多个协程“并行执行”？如何让多个协程“串行执行”？
+
+1.并行执行（多个任务同时运行）
+
+核心思路：同时启动多个协程，通过 join()（无返回值）或 await()（有返回值）等待所有任务完成。 
+
+1.1 无返回值场景：用 launch 启动多个协程，调用 Job.join() 等待全部完成。
+
+```kotlin
+scope.launch {
+    // 启动 3 个并行协程
+    val job1 = launch { task1() }
+    val job2 = launch { task2() }
+    val job3 = launch { task3() }
+
+    // 等待所有协程完成（并行执行，总耗时≈最长任务的时间）
+    job1.join()
+    job2.join()
+    job3.join()
+    println("所有任务完成")
+}
+```
+
+1.2 有返回值场景：用 async 启动多个协程，调用 Deferred.await() 收集结果。
+
+```kotlin
+scope.launch {
+    // 启动 3 个并行协程（带返回值）
+    val deferred1 = async { task1() } // 返回结果1
+    val deferred2 = async { task2() } // 返回结果2
+    val deferred3 = async { task3() } // 返回结果3
+
+    // 等待所有结果（并行执行）
+    val result1 = deferred1.await()
+    val result2 = deferred2.await()
+    val result3 = deferred3.await()
+
+    println("合并结果：$result1, $result2, $result3")
+}
+```
+
+2.串行执行（多个任务按顺序执行）  
+
+核心思路：在单个协程中按顺序调用 suspend 函数，或等待前一个协程完成后再启动下一个。
+
+方式 1：顺序调用 suspend 函数（最简洁）
+
+```kotlin 
+scope.launch {
+    // 按顺序执行（前一个完成后才开始下一个）
+    val result1 = task1() // suspend函数1
+    val result2 = task2(result1) // suspend函数2，依赖1的结果
+    val result3 = task3(result2) // suspend函数3，依赖2的结果
+
+    println("最终结果：$result3")
+}
+```
+
+方式 2：先启动协程，再等待完成后启动下一个
+
+```kotlin
+scope.launch {
+    // 启动第一个协程并等待完成
+    launch { task1() }.join()
+
+    // 第一个完成后，启动第二个
+    launch { task2() }.join()
+
+    // 第二个完成后，启动第三个
+    launch { task3() }.join()
+
+    println("所有任务按顺序完成")
+}
+```
+
+## 如何正确取消一个协程？协程取消的机制是什么？
+
+协程的取消是“协作式”的，即需要**被取消的协程主动配合检查取消状态**，才能真正停止执行。
+
+所有协程启动后返回的 Job（或 Deferred）对象，调用其 cancel() 方法即可触发取消。
+
+```kotlin
+val job = scope.launch {
+    repeat(10) { i ->
+        println("执行第${i}次")
+        delay(500) // 模拟耗时操作
+    }
+}
+
+// 1 秒后取消协程
+scope.launch {
+    delay(1000)
+    job.cancel()
+    println("协程已取消")
+}
+```
+
+**输出：**
+
+执行第0次
+执行第1次
+协程已取消（1 秒后）`
+
+**协作式取消的机制**
+
+当调用 job.cancel() 时，协程的状态会变为 Cancelling，但不会立即停止，而是需要内部逻辑配合。
+
+**取消标记**：协程内部可通过 isActive 属性检查是否被取消。
+
+**suspend 函数触发**：当协程执行到 suspend 函数（如 delay、withContext）时，这些函数会先检查取消状态，若已取消则抛出 CancellationException，终止协程。
+
+**为什么“需要任务配合”？**
+
+如果协程内部执行的是纯计算任务且未调用任何 suspend 函数，也未检查 isActive，则即使调用cancel()，协程也会继续执行直到完成。
+
+**正确的配合方式：**  
+
+在循环中**检查 isActive 或 定期调用 suspend 函数**（如 yield()，主动让出线程并检查取消）。
+
+```kotlin
+val job = scope.launch {
+    var i = 0
+    while (isActive) { // 检查取消状态
+        i++
+        println("i = $i")
+        yield() // 主动让出线程，同时检查取消
+    }
+}
+```
+
+## 哪些情况下协程是不可取消的？如何处理“必须执行完”的任务？
+
+**协程不可取消的常见场景：**
+
+1. 正在执行非 suspend 的计算密集型任务：若协程内部是**纯计算逻辑（无 suspend 函数）且未检查 isActive**，则无法被取消。  
+
+2. 在 finally 块中执行的代码：协程被取消时，finally 块会继续执行（用于资源释放），此时 isActive 为 false，但代码仍会完成。  
+
+3. 使用 NonCancellable 上下文：若在 withContext(NonCancellable) 中执行代码，即使协程被取消，该代码块也会执行完毕。
+
+**处理“必须执行完”的任务：**
+
+1. 利用 finally 块：协程被取消时，finally 块会保证执行，适合简单的资源释放。
+
+2. 使用 NonCancellable 上下文：若 finally 块中包含 suspend 函数（如网络请求释放资源），直接调用会失败（因协程已取消，无法执行 suspend 函数），需用 withContext(NonCancellable) 包裹，临时恢复可取消性。
+
+## 协程中如何处理异常
+
+核心依赖“异常传播机制”和“统一异常处理器”，但 launch 与 async 因设计目标不同，在异常处理上存在关键差异，需针对性处理。
+
+**协程异常处理的核心方式：**  
+
+**局部 try-catch**：在协程内部直接捕获异常（最通用，类似 Java 的 try-catch）。  
+
+**CoroutineExceptionHandler**：通过协程上下文配置**全局异常处理器**，统一捕获作用域内的未处理异常。
+
+![[异常处理 lanuch VS async.png]]
+
+## CoroutineExceptionHandler 的作用是什么
+
+作用是**统一捕获作用域内未被局部处理的异常**，避免异常直接崩溃程序或被静默忽略，类似 Java 中的“全局异常处理器”。
+
+**如何使用：**  
+
+1、创建 CoroutineExceptionHandler 实例，定义异常处理逻辑。  
+
+2、将其添加到协程作用域的上下文(CoroutineContext)中。
+
+```kotlin
+// 1、创建异常处理器
+val globalHandler = CoroutineExceptionHandler { coroutineContext, exception ->
+    val coroutineName = coroutineContext[CoroutineName]?.name ?: "未知协程"
+    println("[$coroutineName] 发生异常：${exception.message}")
+    // 可添加日志上报、UI 提示等逻辑
+}
+
+// 2、关联到协程作用域
+val scope = CoroutineScope(Job() + Dispatchers.Main + globalHandler + CoroutineName("MainScope"))
+
+// 3、启动协程（未局部处理的异常会被全局捕获）
+scope.launch(CoroutineName("Task1")) {
+    throw RuntimeException("网络请求超时") // 被 globalHandler 捕获
+}
+
+scope.launch(CoroutineName("Task2")) {
+    try {
+        throw RuntimeException("局部处理的异常") // 局部已捕获，不会触发全局处理器
+    } catch (e: Exception) {
+        println("局部处理：${e.message}")
+    }
+}
+```
+
+## 如何避免协程泄漏
+
+指“协程已失去存在意义（如关联的页面已销毁），但仍在后台运行并占用资源”的现象。
+
+**导致协程泄漏的常见操作：**
+
+1. 协程未与生命周期绑定：如 Activity 销毁后，在其内部启动的协程仍在执行（未取消），导致Activity 实例被协程持有而无法回收（内存泄漏）。
+
+2. 长时间运行的协程未设置取消条件：如无限循环的协程未检查 isActive，调用 cancel() 后仍继续运行，永远占用资源。
+
+3. 使用全局作用域（GlobalScope）启动协程：GlobalScope 的生命周期与应用一致，若在此作用域启动协程且未手动取消，协程会一直运行到应用退出（即使相关业务已结束）。
+
+**避免协程泄漏的核心方法：**
+
+1.Android 中优先使用 viewModelScope（绑定 ViewModel 生命周期）、lifecycleScope（绑定Activity/Fragment 生命周期），这些作用域会在组件销毁时自动取消所有协程。
+
+2.自定义作用域时，在相关生命周期结束时主动取消（如 onDestroy 中）。
+
+3.除非确需“与应用同生命周期”的任务（如后台日志收集），否则禁止使用 GlobalScope，改用业务相关的局部作用域。
+
+4.长时间运行的协程需定期检查 isActive 或调用 suspend 函数（如 delay、yield），确保能被及时取消。
+
+## 如何让协程运行在自定义的 Java 线程池中
+
+**大多数场景下直接用 `Dispatchers.IO` / `Dispatchers.Default` 就够了**，每个枚举值（`Default`、`IO`）是**独立的对象**，各自维护自己的**全局共享线程池**；`Main` 和 `Unconfined` 则没有自己的线程池。这会带来几个问题
+
+1. **无法精细控制资源**：你没法限制“某个模块最多只能用 2 个线程”。
+    
+2. **无法隔离**：一个模块的慢任务可能把线程池占满，影响其他模块。
+    
+3. **无法定制线程属性**：线程名、优先级、拒绝策略都是固定的。
+
+想实现这几种情况时才考虑使用自定义线程池。
+
+将 Java `ExecutorService` 转换为协程调度器的标准方法是使用扩展函数 `asCoroutineDispatcher()`。
+
+```kotlin
+import kotlinx.coroutines.asCoroutineDispatcher
+import java.util.concurrent.Executors
+
+// 1. 创建自定义 Java 线程池
+val myThreadPool = Executors.newFixedThreadPool(4)
+
+// 2. 使用扩展函数转换为 CoroutineDispatcher
+val myDispatcher = myThreadPool.asCoroutineDispatcher()
+
+// 3. 在协程中使用
+viewModelScope.launch(myDispatcher) {
+    // 这段代码将运行在你的自定义线程池上
+    // ...
+}
+```
+
+## 协程不是已经能处理异步了吗，为什么还要 Flow？
+
+### 基础概念
+
+**`suspend` 函数解决的是“一次异步返回一个结果”，`Flow` 解决的是“异步返回多个结果（数据流）”。**
+
+可以把协程体系分为三个层次：
+
+|层次|工具|解决的问题|
+|---|---|---|
+|**单次异步**|`suspend` 函数|一次异步调用，返回一个结果|
+|**多次异步（流）**|`Flow`|异步返回多个结果，可组合、可变换|
+|**并发协调**|`launch` / `async` / `coroutineScope`|启动多个协程，协调它们的生命周期和结果|
+
+所以 **Flow 不是协程的替代品，也不是协程的“附加功能”，而是协程体系中处理“异步数据流”的标准工具**。
+
+### Flow vs RxJava Observable
+
+| 维度        | RxJava `Observable`                                | Kotlin `Flow`                       |
+| --------- | -------------------------------------------------- | ----------------------------------- |
+| **所属体系**  | 独立的响应式框架                                           | Kotlin 协程库的一部分                      |
+| **背压支持**  | 需要区分 `Observable` / `Flowable`                     | `Flow` 天然支持背压（挂起代替缓冲）               |
+| **线程切换**  | `subscribeOn` / `observeOn`                        | `flowOn`（只影响上游）                     |
+| **取消机制**  | 通过 `Disposable` 手动管理                               | 跟随协程作用域，自动传播                        |
+| **错误处理**  | `onErrorReturn` 等操作符                               | `try-catch` + `catch` 操作符           |
+| **操作符数量** | 极其丰富（数百个）                                          | 够用（几十个核心操作符）                        |
+| **学习曲线**  | 陡峭（多种类型：`Single`/`Maybe`/`Completable`/`Flowable`） | 平缓（只有 `Flow` 一种）                    |
+| **与协程集成** | 需要适配器                                              | 原生，无缝集成                             |
+| **冷热流**   | `Observable` 默认冷，`Subject` 热                       | `Flow` 冷，`StateFlow`/`SharedFlow` 热 |
+**Flow 是 RxJava 的推荐替代方案**。
+
+### 不用 Flow，基础协程够用吗？
+
+**对于很多场景，够用。**
+
+**问自己一个问题：“这个数据会变化多次吗？”**
+
+- 只会返回一次 → `suspend` 函数就够了
+    
+- 会持续变化、需要监听 → 用 `Flow`
+
+**持续性异步数据流，就是「一个不会自己结束的管道，数据随时间异步地、一个接一个地从中流出，你随时可以开始接收，也随时可以停止接收」。**
+
 ## Flow、StateFlow、ShareFlow 关系和区别
 
 | 特性             | `Flow` (冷流)        | `StateFlow` (热流)                              | `SharedFlow` (热流)                            |
@@ -3778,12 +4246,6 @@ fun loadData() {
 **冷流**像点播视频，没有订阅者时不产生数据，每个订阅者都会触发一次完整的数据流，是一对一的关系。适合网络请求、数据库查询等按需加载的场景。
 
 **热流**像直播，无论有没有订阅者都持续产生数据，多个订阅者共享同一个数据源，新订阅者只能收到订阅后的数据，是一对多的关系。
-
-##  suspend 函数和普通函数的区别是什么
-
-- **调用限制**：`suspend` 函数只能在协程或另一个 `suspend` 函数中调用，因为挂起和恢复依赖调用处提供的 `Continuation`（书签）对象。
-- **非阻塞挂起**：`suspend` 关键字本身只是标记，真正触发挂起的是函数内部调用的挂起点（如 `delay`、`withContext`）。挂起时不会阻塞当前线程，线程可以继续执行其他任务。
-- **编译实现**：编译器会对 `suspend` 函数做 CPS 变换，把它变成带 `Continuation` 参数的普通函数，并生成状态机代码，从而支持“暂停—恢复”的执行流程。
 
 # 网络
 
@@ -3864,9 +4326,9 @@ HTTPS 依赖于 SSL/TLS 协议通过将 HTTP 的内容进行加密，使用非�
 **流程如下:**
 
 1.  客户端向服务器发起 HTTPS 请求，连接到服务器的 443 端口。
-2.  服务器返回一个 CA 数字证书(包含公钥、域名、有效期)。
-3.  客户端校验证书的合法性，验证通过后生成一个随机值，使用证书中的**公钥将这个随机值加密**后发送给服务端。
-4.  服务器**使用私钥解密**这个随机值，然后使用这个随机值作为对称加密的密钥，用其将数据加密后传送给客户端。
+2.  **服务器返回一个 CA 数字证书**(包含公钥、域名、有效期)。
+3.  客户端**校验证书的合法性**，验证通过后**生成一个随机值**，使用证书中的**公钥将这个随机值加密**后发送给服务端。
+4.  服务器**使用私钥解密**这个随机值，然后**使用这个随机值作为对称加密的密钥**，用其将数据加密后传送给客户端。
 5.  客户端使用这个随机值解密服务器传送来的信息，获取到明文的 HTTP 数据。
 
 ## HTTP 和 HTTPS 的区别
@@ -3932,13 +4394,13 @@ Socket(套接字)不是网络协议，而是一套「编程接口」，是应用
 
 ## TCP 是如何保证传输的可靠性的
 
-1.  **序列号**：TCP 会为每个发送的数据包分配一个唯一的序列号。接收方会根据序列号对接收到的数据包进行排序，确保数据的顺序正确。如果接收方发现数据包的序列号不连续，它会要求发送方重新发送缺失的数据包
+1.  **序列号**：TCP 会为每个发送的数据包分配一个唯一的序列号。接收方会根据序列号对接收到的数据包进行排序，确保数据的顺序正确。如果接收方发现数据包的序列号不连续，它会要求发送方重新发送缺失的数据包。
 
-2.  **确认应答**：接收方在成功接收到数据包后，会向发送方发送一个确认应答（ACK）。发送方会根据确认应答来判断数据包是否成功传输。如果发送方在一定时间内没有收到确认应答，它会认为数据包丢失，并重新发送该数据包
+2.  **确认应答**：接收方在成功接收到数据包后，会向发送方发送一个确认应答（ACK）。发送方会根据确认应答来判断数据包是否成功传输。如果发送方在一定时间内没有收到确认应答，它会认为数据包丢失，并重新发送该数据包。
 
-3.  **流量控制**：TCP 使用滑动窗口机制进行流量控制，接收方会根据自己的处理能力，告诉发送方一个窗口大小，发送方只能在这个窗口大小内发送数据。当接收方的处理能力下降时，它会减小窗口大小，从而限制发送方的发送速度。如果网络状况良好，窗口可以变大，发送更多的数据
+3.  **流量控制**：TCP 使用滑动窗口机制进行流量控制，接收方会根据自己的处理能力，告诉发送方一个窗口大小，发送方只能在这个窗口大小内发送数据。当接收方的处理能力下降时，它会减小窗口大小，从而限制发送方的发送速度。如果网络状况良好，窗口可以变大，发送更多的数据。
 
-4.  **校验和**：TCP 在发送数据时，会对每个数据包进行校验和的计算。接收方在收到数据包后，会对数据包进行同样的校验和计算，然后与发送方的校验和进行比对。如果校验和不一致，接收方会丢弃该数据包，并要求发送方重新发送。这样可以确保数据在传输过程中没有被损坏
+4.  **校验和**：TCP 在发送数据时，会对每个数据包进行校验和的计算。接收方在收到数据包后，会对数据包进行同样的校验和计算，然后与发送方的校验和进行比对。如果校验和不一致，接收方会丢弃该数据包，并要求发送方重新发送，这样可以确保数据在传输过程中没有被损坏。
 
 ## 长连接与短连接的区别是什么？
 
