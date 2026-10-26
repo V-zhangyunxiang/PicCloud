@@ -1228,7 +1228,7 @@ if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
 3. **极端需求用 Camera2**: 只有在做专业摄影 App，需要精细控制每一帧的曝光、对焦参数，或者需要同时开启前后摄像头等 CameraX 尚未完全覆盖的功能时，才考虑使用复杂的 Camera2。
 ## Mac 安装 oh-my-zsh 需要在什么目录下，在什么目录下使用 homebrew 执行安装插件的命令，如何配置让这些插件生效呢
 
-在Mac上安装 `oh-my-zsh` 和使用 Homebrew 安装插件的过程相对简单。以下是详细的步骤和配置指南：
+在 Mac 上安装 `oh-my-zsh` 和使用 Homebrew 安装插件的过程相对简单。以下是详细的步骤和配置指南：
 
 ### 安装 `oh-my-zsh`
 
@@ -1251,7 +1251,7 @@ if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
 
 ### 使用 Homebrew 安装插件
 
-Homebrew 是一个非常流行的包管理工具，可以用来安装许多 `zsh` 插件。你可以在任何目录下使用 Homebrew 安装插件，但通常建议在用户的主目录下执行这些命令。
+Homebrew 是一个非常流行的包管理工具，可以用来安装许多 `zsh` 插件。你可以在任何目录下使用 Homebrew 安装插件，但通常**建议在用户的主目录下执行这些命令**。
 
 #### 安装常用插件
 
