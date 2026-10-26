@@ -8,10 +8,10 @@
 调用 `startActivity` 后，通过 `Instrumentation` 获取 AMS 的 Binder 代理，发起跨进程（IPC）请求。
 
 **2. 系统端（AMS 决策与孵化）：**  
-AMS 接收后校验 Intent 和权限，回调旧 Activity 的 `onPause`，并根据启动模式（LaunchMode）计算目标栈。**若目标进程不存在**，AMS 会(通过 Socket) 向 Zygote 发起 fork 请求创建新进程，
+AMS 接收后校验 Intent 和权限，回调旧 Activity 的 `onPause`，并根据启动模式（LaunchMode）计算目标栈。**若主进程不存在**，AMS 会(通过 Socket) 向 Zygote 发起 fork 请求创建主进程。
 
 **3. 应用端（事务回调与生命周期）：**  
-新进程启动后执行 `ActivityThread.main()` ，通过反向 Binder 向 AMS 注册。AMS 通过反向 Binder 回调启动事务，新进程通过 **Handler H** 从 Binder 线程切到主线程，最终由 `Instrumentation` 反射创建 Activity，并顺序执行 `onCreate` → `onStart` → `onResume`。
+主进程启动后执行 `ActivityThread.main()` 向 AMS 注册。AMS 通过反向 Binder 回调启动事务，主进程通过 **Handler H** 从 Binder 线程切到主线程，最终由 `Instrumentation` 反射创建 Activity，并顺序执行 `onCreate` → `onStart` → `onResume`。
 ## onSaveInstanceState，onRestoreInstanceState 的调用时机
 
 `onSaveInstanceState()` 在 Activity 被非主动销毁前调用（`onPause() -> onSaveInstanceState() -> onStop()`）。
@@ -2048,20 +2048,24 @@ DecorView 是顶层根视图，是一个 FrameLayout，内部包含了一个竖�
 绘制流程可以分成 2 个阶段，DecorView 的创建和渲染。
 
 **创建阶段**
-调用 `setContentView()` 时，PhoneWindow 先实例化 DecorView（这也是为什么 `requestFeature` 必须在它之前调用），然后通过 XML Pull 解析器递归创建 View 树，并将所有 View 添加到 ContentView 中。
+
+调用 `setContentView()` 时，PhoneWindow 先实例化 DecorView（这也是为什么 `requestFeature` 必须在它之前调用），LayoutInflater 通过 XML Pull 递归解析 XML 布局文件，创建出完整的 View 树，并添加到 DecorView 内部的 ContentView 中。
 
 **绘制阶段**
 
-在 `onResume` 之后，`ActivityThread` 调用 `WindowManagerGlobal.addView()`创建 `ViewRootImpl`。它是整个 View 树的管理者，负责协调绘制和与 WMS 的通信。
+在 `onResume` 之后，会调用 `WindowManagerGlobal.addView()`，在这里**创建 ViewRootImpl**。ViewRootImpl 是整个 View 树的管理者，负责协调绘制和与 WMS 的通信。
 
-`ViewRootImpl` 调用 `scheduleTraversals()`，通过 `Choreographer` 注册 VSync 回调，并**插入同步屏障确保绘制任务优先执行**。VSync 信号到来时，触发 `performTraversals()`，依次执行: 
+ViewRootImpl 通过 `setView()` 触发 `requestLayout()`，进而调用 `scheduleTraversals()`。这个方法做两件事：
+
+1. **插入同步屏障**：保证绘制任务（异步消息）优先于普通同步消息执行；
+    
+2. **通过 Choreographer 注册 VSync 回调**，等待下一个 VSync 信号。
+
+当 VSync 信号到来时，触发 `doTraversal()`，**移除同步屏障**，触发 `performTraversals()`，依次执行: 
 
 - **Measure**：通过 `MeasureSpec` 递归测量每个 View 的宽高；
 - **Layout**：递归确定每个 View 的位置（left/top/right/bottom）；
 - **Draw**：按照背景→自身→子 View→前景的顺序完成绘制。
-
-绘制完成后移除同步屏障，消息队列恢复正常。
-
 ### MeasureSpec 是什么
 
 MeasureSpec 是一个有 32 bit 的 Int 值，高 2 位表示测量模式 Mode，低 30 位表示数值大小 Size。
@@ -2166,7 +2170,7 @@ getMeasureWidth 获取的是测量结束后的值。而 getWidth 获取的是布
 
 **requestLayout** 用于 View 的大小或位置发生变化时，会重新触发 `onMeasure` 和 `onLayout`。但 `onDraw` 不一定触发，只有当尺寸或位置真正改变时才会重绘。
 
-### Surface、Canvas、Window 之间的关系是什么
+### Window、Surface、Canvas 之间的关系是什么
 
 Window 是屏幕上的矩形区域，每个 Window 对应一个 Surface(内存缓冲区)，Canvas 是在 Surface 上绘制的工具。
 
@@ -3627,7 +3631,7 @@ data class User(val name: String, val age: Int)
 - 不能被子类重写
 - 成员函数优先级高于扩展函数
 
-## 高阶函数是什么，什么是内联
+## 高阶函数是什么，inline 在其中的作用是什么
 
 满足以下条件之一的函数：
 
@@ -3700,15 +3704,11 @@ Kotlin 内置的三种属性委托
 
 3.Delegates.vetoable（可拦截）
 
-    ## 协程是什么，与线程的关系是什么，如何在 Android 中使用协程
+## 协程是什么，与线程的关系是什么，如何在 Android 中使用协程
 
 ### 两者关系
 
-协程是 Kotlin 提供的**用户态轻量级并发单元**，运行在线程之上，它允许在单线程内通过**暂停-恢复机制实现多任务切换**，从而达到并发效果。
-
-与线程相比，协程创建开销极小，可以创建成千上万个。
-
-挂起时释放线程，线程可以去执行其他协程，极大提升了线程利用率。
+协程是 Kotlin 提供的**用户态轻量级并发单元**，运行在线程之上，它允许在单线程内通过**暂停-恢复机制实现高效的并发效果**。
 
 **核心特点**
 
@@ -3719,7 +3719,7 @@ Kotlin 内置的三种属性委托
 
 线程相对于协程，主要有**四个缺点**：
 
-1. **资源开销大**：每个线程默认约 1MB 栈内存，**创建、销毁需系统调用**，数量受限；而协程只有几十到几百字节，可以轻松创建数十万个。
+1. **资源开销大**：每个线程默认约 1MB 栈内存，**创建、销毁需系统调用**，数量受限；而协程只有几十到几百字节堆内存，可以轻松创建数十万个。
     
 2. **切换成本高**：线程是“内核态线程”，切换由**操作系统内核调度**；协程是“用户态任务”，切换由**用户态代码控制**，不依赖内核。
     
@@ -3813,7 +3813,7 @@ fun loadData() {
     
 - **CoroutineName**: 给协程起个名字，方便调试。
     
-- **CoroutineExceptionHandler**: 协程的异常处理器，统一捕获协程中的异常。
+- **CoroutineExceptionHandler**: 协程的全局异常处理器，统一捕获协程中的异常。
 
 **关键特性：** CoroutineContext 有一个非常重要的特性：**叠加**（通过 `+` 操作符）。当两个 Context 相加时，如果它们有相同 `Key` 的 Element（比如两个 Job），那么右边的会覆盖左边的。
 
@@ -4171,7 +4171,7 @@ scope.launch(CoroutineName("Task2")) {
 
 想实现这几种情况时才考虑使用自定义线程池。
 
-将 Java `ExecutorService` 转换为协程调度器的标准方法是使用扩展函数 `asCoroutineDispatcher()`。
+将 Java `ExecutorService` 转换为协程调度器的标准方法是**使用扩展函数 `asCoroutineDispatcher()`**。
 
 ```kotlin
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -4189,6 +4189,102 @@ viewModelScope.launch(myDispatcher) {
     // ...
 }
 ```
+
+## Kotlin Flow 是什么? 协作流程是怎样的?
+
+Kotlin Flow 是一种**基于协程的响应式数据流**方案，用于**异步发射一系列数据**（支持多值发射），并通过操作符处理数据，最终被收集消费，它本质是“冷流”（默认特性），且完全融入 Kotlin 协程生态。
+
+**协作流程：**  
+
+1、下游调用 collect（或其他末端操作符）触发数据流启动。 
+
+2、上游开始发射数据（如 emit(1)）。  
+
+3、数据依次经过中间操作符处理（如 map 转换）。  
+
+4、处理后的数据被下游收集并消费。  
+
+5、当收集结束（如协程取消），上游停止发射，整个链路终止。
+
+## Flow 基础使用方式
+
+### 创建
+
+1.**flow{ ... }**：最灵活的构建器，用于自定义发射逻辑（支持复杂操作，如网络请求、循环发射），内部可调用挂起函数（如 delay、网络请求）。
+
+适用场景：需要动态生成数据（如从数据库分页加载、定时发射数据）。
+
+代码示例：
+
+```kotlin
+val timerFlow = flow {
+    for (i in 1..3) {
+        delay(1000) // 挂起函数，每秒发射一次
+        emit(i) // 发射 1,2,3
+    }
+}
+```
+
+2.**flowOf(vararg elements)**：用于发射已知的固定数据序列（不可变）。
+
+适用场景：测试、模拟数据，或发射少量静态数据。  
+
+代码示例：  
+
+val stringFlow = flowOf("A", "B", "C") // 直接发射三个字符串。
+
+3.**asFlow()**：扩展函数，将其他类型（如 List、Sequence、Channel）转换为 Flow。  
+
+适用场景：将现有数据结构（如列表）转换为数据流，复用 Flow 操作符。 
+
+代码示例：
+
+val listFlow = listOf(10, 20, 30).asFlow() // 列表转 Flow
+
+val channelFlow = Channel<>().asFlow() // Channel 转 Flow
+
+### 收集
+
+通过“末端操作符”触发收集，最常用的是 collect，其他还有 toList（收集为列表）、first（取第一个数据）等。
+
+collect 的强制要求：collect 是挂起函数，必须在协程作用域中调用（如 CoroutineScope、lifecycleScope、viewModelScope），**收集过程默认在当前协程的线程中执行**（如需切换线程，需配合 flowOn 或 withContext）。
+
+```kotlin
+// 1. 在 ViewModel 中创建 Flow（上游在 IO 线程）
+val userFlow = flow {
+    // 模拟网络请求（IO 线程）
+    val user = apiService.getUser()
+    emit(user)
+}.flowOn(Dispatchers.IO)  // 指定上游在 IO 线程执行
+
+// 2. 在 Activity/Fragment 中收集（主线程，可直接更新 UI）
+lifecycleScope.launch {  // lifecycleScope 默认在主线程
+    userFlow.collect { user ->
+        // 直接更新 UI（如 TextView）
+        tvName.text = user.name
+    }
+}
+```
+
+### 终止条件
+
+Flow 是“可终止的数据流”。
+
+1.自然终止条件：  
+
+上游发射完所有数据并正常结束（如 flow { emit(1); emit(2) } 发射完 1、2 后自动终止）。  
+
+下游收集过程中抛出未捕获的异常（如 collect 中 throw Exception，会终止整个链路）。  
+
+2.主动停止方式：
+
+操作符控制：使用 take(n) 限制只接收前 n 个数据，接收完后自动终止。
+
+取消协程：Flow 收集依赖协程，取消协程会立即终止收集，上游也会停止发射（适用于“用户主动退出页面”等场景）。
+
+### 注意事项
+
+构造 Flow 对象（写 `flow { }`、调用 `map` 等）不需要协程，因为这些操作只是保存 lambda、构造对象，不会执行任何 suspend 逻辑。真正执行 Flow 内部代码（`emit`、`transform`）是在 `collect` 时，而 `collect` 是 suspend 函数，必须在协程中调用，所以 `emit` 和 `transform` 自然也就在协程中执行了。
 
 ## 协程不是已经能处理异步了吗，为什么还要 Flow？
 
@@ -4219,7 +4315,7 @@ viewModelScope.launch(myDispatcher) {
 | **学习曲线**  | 陡峭（多种类型：`Single`/`Maybe`/`Completable`/`Flowable`） | 平缓（只有 `Flow` 一种）                    |
 | **与协程集成** | 需要适配器                                              | 原生，无缝集成                             |
 | **冷热流**   | `Observable` 默认冷，`Subject` 热                       | `Flow` 冷，`StateFlow`/`SharedFlow` 热 |
-**Flow 是 RxJava 的推荐替代方案**。
+**Flow 是 RxJava 的推荐替代方案，是处理异步流的首选方案**。
 
 ### 不用 Flow，基础协程够用吗？
 
@@ -4233,19 +4329,171 @@ viewModelScope.launch(myDispatcher) {
 
 **持续性异步数据流，就是「一个不会自己结束的管道，数据随时间异步地、一个接一个地从中流出，你随时可以开始接收，也随时可以停止接收」。**
 
-## Flow、StateFlow、ShareFlow 关系和区别
+## Flow 冷流的特点是什么？与热流的区别？
 
-| 特性             | `Flow` (冷流)        | `StateFlow` (热流)                              | `SharedFlow` (热流)                            |
-| -------------- | ------------------ | --------------------------------------------- | -------------------------------------------- |
-| **核心用途**       | **处理数据流**          | **管理状态**                                      | **共享事件**                                     |
-| **热度**         | **冷流**             | **热流**                                        | **热流**                                       |
-| **含义**         | 对每个收集者，**独立**启动执行。 | **始终处于活跃状态**，存储状态值，并向**所有**收集者广播**当前和未来**的状态。 | **始终处于活跃状态**，向**所有**收集者广播**事件**。             |
-| **必须有初始值？**    | 否                  | **是**                                         | 否                                            |
-| **重播**         | 每次收集都从头开始。         | 自动保留**最后 1 个**状态值，并立即提供给新收集者。                 | 可配置**重播缓存**(replay)，向新收集者发射最近 N 个值。          |
-| **Android 类比** | 执行一次数据库查询。         | `LiveData` 的现代化、协程替代品。                        | 事件总线(如 `RxBus`)的替代品，用于一次性事件(如 `Toast`、导航命令)。 |
-**冷流**像点播视频，没有订阅者时不产生数据，每个订阅者都会触发一次完整的数据流，是一对一的关系。适合网络请求、数据库查询等按需加载的场景。
+冷流的核心特点可概括为“按需工作，一对一绑定”。不收集则不发射，每个收集者都会触发上游重新执行发射逻辑（即多个收集者对应多个独立的上游实例），彼此数据不共享。
 
-**热流**像直播，无论有没有订阅者都持续产生数据，多个订阅者共享同一个数据源，新订阅者只能收到订阅后的数据，是一对多的关系。
+热流是指“独立于收集者工作，数据可被多收集者共享”的数据流，其核心特点与冷流完全相反。
+无论是否有收集者都会发射，所有收集者共享同一个上游实例，接收的数据是相同的（除非配置了重放策略）。
+
+![[冷流 VS 热流.png]]
+
+## 哪些 Flow 实现是热流，它们的区别是什么
+
+**StateFlow 和 SharedFlow 是官方提供的热流实现。**
+
+1.**StateFlow 是专为“状态管理”设计的热流**。核心特点如下：
+
+**持有最新状态**：始终存储一个“当前值”，新收集者会立即收到这个最新值（粘性发射）。  
+
+**自动去重**：若新发射的值与当前值相同（equals 判断），则不会通知收集者（避免无效刷新）。  
+
+**多收集者共享**：所有收集者共享同一状态，状态更新时同时收到通知。
+
+2.**SharedFlow 是更灵活的热流，适用于“事件分发”（如弹窗、导航事件）**。核心特性如下：
+
+**无默认值**：不持有状态，只负责转发数据。  
+
+**可配置重放策略**：通过 replay 参数设置对新收集者重放的历史数据量（默认 0，即不重放）。  
+
+**缓冲区与溢出策略**：通过 buffer 和 onBufferOverflow 控制数据积压时的处理逻辑（如丢弃旧数据/新数据）。
+
+```kotlin
+// 创建 SharedFlow
+val eventFlow = MutableSharedFlow<String>(  
+    replay = 1, // 新收集者会收到最后1条数据  
+    extraBufferCapacity = 3,  
+    onBufferOverflow = BufferOverflow.DROP_OLDEST // 缓冲区满时丢弃旧数据  
+)
+```
+
+replay: Int：对新收集者重放的历史事件数量（默认 0）。
+
+extraBufferCapacity: Int：缓冲区大小（默认 0），用于暂存未被收集的事件。
+
+onBufferOverflow：缓冲区满时的处理策略（默认 SUSPEND）。
+
+## Flow 操作符
+
+### 转换类操作符
+
+转换类操作符用于**将上游数据加工为新数据**。
+
+|操作符|一句话|输入 → 输出|
+|---|---|---|
+|`map`|**1 个值 → 1 个值**，做同步变换|`Flow<A>` → `Flow<B>`|
+|`transform`|**1 个值 → N 个值**，可 emit 任意次|`Flow<A>` → `Flow<B>`（N 不固定）|
+|`flatMapMerge`|**1 个值 → 1 个新 Flow**，并发展开合并|`Flow<A>` → `Flow<B>`（A 映射为 Flow<B>）|
+
+**核心区别就一点**：**每个上游值，产出了几个下游值？**
+
+- `map`：**固定 1 个**
+    
+- `transform`：**0 到 N 个，你随意**
+    
+- `flatMapMerge`：**展开成一个新的 Flow，并发收集**
+
+1.map(transform: (T) -> R)：最简单的转换，**一对一映射（一个输入对应一个输出）**。  
+
+2.transform(block: suspend TransformScope<>.(T) -> Unit)：最灵活的转换，支持多值发射、空发射或改变类型（**一个输入可对应 0~N 个输出**）。  
+
+3.flatMapConcat/flatMapMerge/flatMapLatest：**将上游数据转换为子 Flow，并合并子 Flow 的数据**，三者的区别在于子 Flow 的执行顺序：  
+
+flatMapConcat：串行执行子 Flow（前一个子 Flow 完成后再执行下一个）。  
+
+flatMapMerge：并行执行子 Flow（同时启动多个子 Flow，数据按发射顺序合并）。  
+
+flatMapLatest：只保留最新的子 Flow（新子 Flow 启动时，取消前一个未完成的子 Flow）。  
+
+### 过滤类操作符
+
+过滤类操作符用于**筛选上游数据**，只保留符合条件的数据。
+
+1.filter(predicate: (T) -> Boolean)：保留满足条件（返回 true）的数据。
+
+2.take(count: Int)：只保留前 count 个数据，接收完后自动终止 Flow。
+
+3.distinctUntilChanged()：过滤**连续重复**的数据（只保留与前一个不同的数据）。
+
+### 末端操作符
+
+末端操作符是触发 Flow 执行的“开关”，Flow 是惰性的，只有调用末端操作符后，上游发射和中间操作才会实际执行，**末端操作符都是挂起函数，必须在协程中调用**。
+
+1.collect(action: suspend (T) -> Unit)：最基础的末端操作符，持续收集所有数据。
+
+2.toList()：将所有数据收集到一个列表中，Flow 终止后返回列表。
+
+3.first()：获取第一个数据，拿到后立即终止 Flow（忽略后续数据）。
+
+4.single()：要求 Flow 只发射一个数据，否则抛出异常（确保数据唯一性）。
+
+5.count()：统计数据总数，Flow 终止后返回数量。
+
+## 如何为 Flow 配置线程，与 withContext 有什么区别
+
+核心通过 flowOn 操作符控制上游线程，配合收集所在协程的上下文控制下游线程。
+
+flowOn 的作用：指定“当前操作符之前的上游代码”运行的线程（包括发射逻辑和之前的操作符），不影响下游代码的线程。若有多个 flowOn，最后一个 flowOn 决定上游最终线程。
+
+**与 withContext 的区别：**  
+
+flowOn 影响的是“上游整个链条”的线程（从发射源到当前操作符之前的所有逻辑）。
+
+withContext 仅影响“其代码块内部”的线程，不改变上下游的线程。
+
+## 什么是背压？Flow 如何处理背压？不同策略区别是什么？
+
+### 基础概念
+
+背压是**生产者-消费者模型**中的一个根本问题：
+
+> **生产者生产的速度 > 消费者消费的速度时，该怎么办？**
+
+如果不管，会有两种后果：
+
+- **不缓冲**：生产者必须等消费者，否则数据堆积在内存里 → 内存溢出。
+    
+- **无限制缓冲**：数据堆积在队列里，内存持续增长 → OOM。
+
+背压的本质是：**当消费者来不及处理时，如何让生产者慢下来，或者有策略地丢弃数据，从而避免内存失控。**
+
+**Flow 天生就有最基础的背压机制：挂起**。生产者与消费者在同一协程中串行执行，消费者慢，生产者就自动被挂起等待。不会丢失任何数据，也不会内存堆积。但**缺点是生产者和消费者不能并发**。
+
+### 三种策略
+
+| 维度          | `buffer()` | `conflate()` | `collectLatest()` |
+| ----------- | ---------- | ------------ | ----------------- |
+| **机制**      | 加缓冲区       | 缓冲区=1，覆盖旧值   | 新值取消旧处理           |
+| **是否丢数据**   | ❌ 不丢       | ✅ 丢弃中间值      | ✅ 中断未完成处理         |
+| **消费者拿到的值** | 所有值，按顺序    | 只拿到最新值       | 只完整处理最新值          |
+| **生产者是否阻塞** | 缓冲区满时阻塞    | 不阻塞（覆盖旧值）    | 不阻塞（依赖下游）         |
+| **并发程度**    | 生产者与消费者并发  | 生产者与消费者并发    | 取决于上游             |
+| **适用场景**    | 所有数据都要处理   | 只关心最新状态      | 旧处理应被取消           |
+| **典型例子**    | 批量日志上传     | UI 滚动位置更新    | 搜索框实时搜索           |
+
+## 收集 Flow 如何避免内存泄漏
+
+Android 推荐用 lifecycleScope + repeatOnLifecycle 绑定生命周期。
+
+repeatOnLifecycle 的优势：当生命周期状态低于指定阈值（如 STARTED）时，会完全取消收集（上游停止发射），状态恢复时，重新启动收集，真正做到“按需工作”。
+
+```kotlin
+// Activity/Fragment 中收集 Flow
+lifecycleScope.launch {
+    // 当生命周期处于 STARTED及 以上时才收集，否则取消
+    repeatOnLifecycle(Lifecycle.State.STARTED) {
+        viewModel.uiState.collect { state ->
+            // 更新UI（只在页面可见时执行）
+        }
+    }
+}
+```
+
+## 如何自定义 Flow？
+
+自定义 Flow 通过 flow 构建器实现，核心是在 flow { ... } 块中用 emit 发射数据，适合封装复杂数据流（如结合回调、监听系统服务）。
+
+关键：用 awaitClose 在 Flow 取消时释放资源（如注销监听、关闭连接），确保自定义 Flow 的安全性。
 
 # 网络
 
@@ -4327,7 +4575,7 @@ HTTPS 依赖于 SSL/TLS 协议通过将 HTTP 的内容进行加密，使用非�
 
 1.  客户端向服务器发起 HTTPS 请求，连接到服务器的 443 端口。
 2.  **服务器返回一个 CA 数字证书**(包含公钥、域名、有效期)。
-3.  客户端**校验证书的合法性**，验证通过后**生成一个随机值**，使用证书中的**公钥将这个随机值加密**后发送给服务端。
+3.  客户端**校验证书的合法性**，验证通过后**生成一个随机值**，使用**证书中的公钥将这个随机值加密**后发送给服务端。
 4.  服务器**使用私钥解密**这个随机值，然后**使用这个随机值作为对称加密的密钥**，用其将数据加密后传送给客户端。
 5.  客户端使用这个随机值解密服务器传送来的信息，获取到明文的 HTTP 数据。
 
