@@ -28,12 +28,6 @@ Jetpack 的组件按「功能场景」可分为 4 大类，每类组件聚焦特
 
 ![[Jetpack 组成.png]]
 
-## 架构组件
-
-标准化 App 架构，解决「数据与 UI 协同」问题。
-
-定义「数据存储、UI更新、页面导航」的标准流程，**避免业务逻辑与 UI 强耦合**，常用组件包括 Lifecycle、ViewModel、LiveData、Room、Navigation。
-
 # Lifecycle 组件
 
 Lifecycle 是 Jetpack 提供的**生命周期感知**组件，它通过观察者模式封装了 Activity/Fragment 等组件的生命周期状态，允许其他组件 (如网络请求管理器、播放器、定位工具) 自动感知并响应这些状态变化，无需手动编写生命周期回调逻辑。
