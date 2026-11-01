@@ -237,7 +237,7 @@ org.gradle.jvmargs=-Xms1024m -Xmx4096m -XX:MaxMetaspaceSize=1024m  // 设置 Gra
 org.gradle.parallel=true // 并行编译 
 org.gradle.caching=true //构建缓存 
 org.gradle.daemon=true   //守护进程
-org.gradle.unsafe.configuration-cache=true //启动配置缓存
+org.gradle.configuration-cache=true //启动配置缓存
 zyxPluginVersion="1.0.0" ////版本设置
 ```
 ## local.properties
@@ -265,7 +265,7 @@ isRelease=true
 
 长期无风险：.gradle 文件夹的内容均为“可重新生成的缓存”，删除后不会破坏项目源码或配置文件，后续构建时 Gradle 会自动重建该文件夹及内容。
 
-# Gradle(Project)+setting.gradle 7.x 后配置变化
+# Gradle(Project) + setting.gradle 7.x 后配置变化
 
 ## 一、老版本中的 `buildscript` 和 `allprojects`
 
@@ -1320,7 +1320,7 @@ configuration.forEach(file -> {
 ```text
    org.gradle.parallel=true //并行编译
    org.gradle.daemon=true   //守护进程
-   org.gradle.unsafe.configuration-cache=true //启动配置缓存
+   org.gradle.configuration-cache=true //启动配置缓存
    org.gradle.caching=true //启用构建缓存
 ```
 
@@ -1705,7 +1705,7 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 
 - `group`：Maven 的 groupId（如 `androidx.core`）
 - `name`：Maven 的 artifactId（如 `core-ktx`）
-- `version.ref`：引用 `[versions]` 中定义的版本别名（如 `coreKtx`）
+- `version.ref`：引用 `[versions]` 中定义的版本别名（如 `coreKtx`），也可以直接写 version = "xxx"。
 
 >**使用方式：**
 >- 在 `build.gradle` 的 `dependencies {}` 中写 `implementation libs.androidx.core.ktx`。
