@@ -131,7 +131,7 @@ plugins {
     id 'com.android.library' version '7.3.0' apply false
     id 'org.jetbrains.kotlin.android' version '1.7.10' apply false
     
-    //或者引用 libs.versions.toml 
+    //或通过 alias 引用 libs.versions.toml 
     alias(libs.plugins.android.application) apply false
 }
 ```
@@ -149,7 +149,7 @@ plugins {
 
 ```groovy
 plugins {  
-    alias(libs.plugins.android.application)  //libs.versions.toml 配置
+    alias(libs.plugins.android.application)  //引用 libs.versions.toml 配置使用 alias
 }  
   
 android {  
@@ -197,9 +197,9 @@ dependencies {
 ```groovy
 pluginManagement {
     repositories {
-        gradlePluginPortal()   // 插件门户
-        google()
-        mavenCentral()
+        google()                    // AGP 等 Google 插件在这里
+        mavenCentral()        // KGP 等 JetBrains 插件在这里
+        gradlePluginPortal() // Gradle 官方插件门户
         // 如果有私有插件仓库，也放在这里
         // maven { url 'https://my-private-plugin-repo.com' }
     }
@@ -271,17 +271,17 @@ isRelease=true
 
 1.`buildscript` 块
 
-**作用**：配置 Gradle 构建脚本**自身**所需的依赖和仓库。也就是说，它负责管理 Gradle 构建过程所依赖的插件、类库等（例如 Android Gradle Plugin、Kotlin Gradle Plugin）。
+**作用**：**配置 Gradle 构建脚本自身所需的依赖和仓库**。它负责管理 Gradle 构建过程所依赖的插件、类库等（例如 Android Gradle Plugin、Kotlin Gradle Plugin）。
 
 **典型内容**：
-- `repositories`：指定去哪里下载这些构建依赖（如 google()、mavenCentral()、jcenter() 等）。
+- `repositories`：指定去哪里下载这些构建依赖（如 google()、mavenCentral() 等）。
 - `dependencies`：声明具体的构建插件，如 `classpath 'com.android.tools.build:gradle:4.2.2'`。
 
-**注意**：`buildscript` 块中的依赖**不会**被你的应用代码（app 模块）所使用，只影响 Gradle 构建本身。
+**注意**：`buildscript` 块中的依赖不会被你的应用代码（如 app 模块）所使用，只影响 Gradle 构建本身。
 
 2.`allprojects` 块
 
-**作用**：为**所有项目**（根项目 + 所有子模块）统一配置公共的仓库和任务。通常用于声明每个模块都需要使用的 Maven 仓库（比如 google()、mavenCentral() 或自定义的私有仓库）。
+**作用**：**为所有项目（根项目 + 所有子模块）统一配置公共的仓库和任务**。通常用于声明每个模块都需要使用的 Maven 仓库（比如 google()、mavenCentral() 或自定义的私有仓库）。
 
 **典型内容**：
 - `repositories`：每个模块在解析自己的依赖（如 androidx.appcompat）时会用到这些仓库。
@@ -298,15 +298,15 @@ isRelease=true
 
 `pluginManagement`
 
-- **含义**：专门用于管理 Gradle 插件的**解析规则**和**版本**。它告诉 Gradle 去哪里下载插件（如 `com.android.application`、`org.jetbrains.kotlin.android`），以及这些插件的默认版本。
-- **对应关系**：它并不完全替代 `buildscript` 块，而是与 `buildscript` 中的插件依赖**协同工作**。在旧写法中，插件通过 `buildscript { dependencies { classpath ... } }` 声明；**新写法中，推荐在 `settings.gradle` 的 `pluginManagement` 中统一声明插件仓库，然后在根 `build.gradle` 的 `plugins` 块中直接使用 `id` 和可选版本**，不再需要 `buildscript` 块。
+- **含义**：**专门用于管理 Gradle 插件的解析规则和版本**。它告诉 Gradle 去哪里下载插件，以及这些插件的默认版本。
+- **对应关系**：**它并不完全替代 `buildscript` 块，而是与 `buildscript` 中的插件依赖协同工作**。在旧写法中，插件通过 `buildscript { dependencies { classpath ... } }` 声明；**新写法中，推荐在 `settings.gradle` 的 `pluginManagement` 中统一声明插件仓库，然后在根 `build.gradle` 的 `plugins` 块中直接使用 `id` 和可选版本**，不再需要 `buildscript` 块。
   - **旧模式**：`buildscript` 负责下载插件 JAR，然后通过 `apply plugin: '...'` 应用。
-  - **新模式**：`pluginManagement` 负责提供插件解析的仓库和版本约束，`plugins { id '...' version '...' }` 直接使用。
-- **注意**：`pluginManagement` 是**可选的**，如果没有它，Gradle 会使用默认的插件解析机制（从 Gradle 插件门户、`buildscript` 仓库等）。
+  - **新模式**：`pluginManagement` 负责提供插件解析的仓库和版本约束，build.gradle 中使用 `plugins { id '...' version '...' }` 直接使用。
+- **注意**：**`pluginManagement` 是可选的**，如果没有它，Gradle 会使用默认的插件解析机制（从 Gradle 插件门户、`buildscript` 仓库等）。
 
 `dependencyResolutionManagement`
 
-- **含义**：集中管理**项目依赖的仓库**（即应用程序模块所依赖的第三方库，如 `androidx.appcompat` 从哪里下载）。它替代了老版本中 `allprojects` 块里的 `repositories` 声明。
+- **含义**：**集中管理项目依赖的仓库**。它替代了老版本中 `allprojects` 块里的 `repositories` 声明。
 - **对应关系**：`dependencyResolutionManagement` 中的 `repositories` 块与 `allprojects { repositories }` **功能等效**，但作用域更可控（可以设置 `repositoriesMode` 来禁止模块单独声明仓库）。
   - **旧模式**：每个模块（或通过 `allprojects`）各自声明仓库。
   - **新模式**：所有模块共享 `settings.gradle` 中定义的仓库，无法在模块级再轻易覆盖（除非设置 `FAIL_ON_PROJECT_REPOS` 或 `PREFER_PROJECT` 模式）。
@@ -321,7 +321,7 @@ isRelease=true
 ```
 MyAndroidNote/
 ├── build.gradle          (根)
-├── settings.gradle       (或 settings.gradle.kts)
+├── settings.gradle     (或 settings.gradle.kts)
 ├── app/
 │   └── build.gradle
 ```
@@ -366,9 +366,9 @@ task clean(type: Delete) {
 ```groovy
 pluginManagement {
     repositories {
-        gradlePluginPortal()   // 插件门户
-        google()
-        mavenCentral()
+        google()                    // AGP 等 Google 插件在这里
+        mavenCentral()        // KGP 等 JetBrains 插件在这里
+        gradlePluginPortal() // Gradle 官方插件门户
         // 如果有私有插件仓库，也放在这里
         // maven { url 'https://my-private-plugin-repo.com' }
     }
@@ -1191,7 +1191,7 @@ buildscript {
 // app/build.gradle.kts
 apply(plugin = "com.example.my-plugin")
 ```
-### AAR 和 Gradle Plugin 上传对比
+### AAR 上传 VS Gradle Plugin 上传
 
 |对比维度|**AAR 上传**|**Gradle 插件上传**|
 |---|---|---|
