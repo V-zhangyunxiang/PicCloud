@@ -1101,7 +1101,7 @@ plugins {
 ```kotlin
 // file: plugin-module/build.gradle.kts
 plugins {
-    id("java-gradle-plugin")     // 开发 Gradle 插件的核心插件
+    id("java-gradle-plugin")     // 开发 Gradle 插件的核心插件，自动生成插件描述符 + Marker Artifact
     id("maven-publish")           // 发布插件
 }
 
@@ -1116,6 +1116,9 @@ gradlePlugin {
 }
 
 // 配置发布信息（和 AAR 类似）
+//    classpath 构件名的前两段：group + version
+//    最终构件坐标 = ${group}:${artifactId}:${version}
+//    artifactId 默认取项目名
 group = "com.example"
 version = "1.0.0"
 
@@ -1157,8 +1160,8 @@ publishing {
 ```text
 ~/.m2/repository/com/example/my-plugin/1.0.0/
 ├── my-plugin-1.0.0.jar                 # 插件主 JAR
-├── my-plugin-1.0.0.pom                 # 主 POM
-└── my-plugin-1.0.0.module              # Gradle 模块元数据（包含 Plugin Marker）
+├── my-plugin-1.0.0.pom              # 主 POM
+└── my-plugin-1.0.0.module         # Gradle 模块元数据（包含 Plugin Marker）
 ```
 
 Gradle 还会自动生成一个“标记文件”用于 `plugins {}` DSL 查找：

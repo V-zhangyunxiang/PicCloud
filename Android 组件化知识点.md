@@ -575,7 +575,7 @@ if (hasLocalProperty("sourceDepSwitch.SABiz")) {
 - 需要各组件仓库与壳工程在同一开发目录下，且路径相对固定。
 - 所有替换的模块都是复合构建的一部分，可能影响构建配置时间（可接受范围）。
 
-## 手动切换：project vs AAR 的动态依赖
+## 手动切换：project VS aar 的动态依赖
 
 是最原始但也最灵活的方式，直接在使用方模块的 `build.gradle` 中根据变量切换依赖声明。
 
@@ -599,7 +599,7 @@ dependencies {
 
 - **侵入性强**：每个依赖处都要写 `if-else`，模块多了以后代码会变得很乱。
 - 需要同时管理 `settings.gradle` 的 `include`，容易出错。
-- **依赖坐标不统一**：源码依赖时用的是 `project`，AAR 时用的是 Maven 坐标，如果切换时疏忽，容易提交错误的代码。
+- **依赖坐标不统一**：源码依赖时用的是 `project`，aar 时用的是 maven 坐标，如果切换时疏忽，容易提交错误的代码。
 
 ## 分辨率策略替换：resolutionStrategy + dependencySubstitution
 
@@ -968,7 +968,7 @@ afterEvaluate {
 
 ```bash
 ./gradlew publishToMavenLocal    # 发布到本地 Maven 仓库
-./gradlew publish                # 发布到 build.gradle 中配置的所有远程仓库
+./gradlew publish                           # 发布到 build.gradle 中配置的所有远程仓库
 ```
 
 **4.在壳工程引用**
