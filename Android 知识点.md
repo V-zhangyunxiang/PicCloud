@@ -2215,7 +2215,6 @@ Choreographer 监听 VSync 信号，SurfaceFlinger 在下一个 VSync 信号时�
      - 通过将后台服务设置为前台服务（`startForeground`）并放在独立进程中，可以降低其被系统杀死的概率。即使这个后台进程被杀死，主UI进程也可能不受影响，用户体验更好。
 
 ### 多进程会带来哪些问题
-
 1.Application 多次创建
 - 每个进程都会独立创建`Application`实例，`onCreate()`执行多次。
 - **注意**：需根据进程名区分初始化逻辑，避免重复加载库或资源。
@@ -2223,7 +2222,7 @@ Choreographer 监听 VSync 信号，SurfaceFlinger 在下一个 VSync 信号时�
 - 静态变量、单例等属于进程私有，无法跨进程共享。
 - **注意**：跨进程数据必须通过 IPC（如`ContentProvider`、AIDL）传递。
 3.SharedPreferences 并发读写风险
-- SP 基于XML文件，无跨进程锁，多进程同时写入会导致数据损坏或丢失。
+- SP 基于 XML 文件，无跨进程锁，多进程同时写入会导致数据损坏或丢失。
 - **注意**：改用`ContentProvider`、MMKV 或数据库 + `ContentProvider`。
 4.数据库并发问题
 - 多进程直接操作同一 SQLite 文件可能引发 `SQLiteDatabaseLockedException`。
@@ -4864,7 +4863,7 @@ WebView 是 Android 内置的网页渲染引擎，对外加载资源、发起网
 2. **端上容器**  
     在 iOS、Android 以及 Web 端分别实现容器（Container），这个容器负责加载、运行 JS 代码，生成原生 UI 结构，提供 JS 与原生之间的通信。
 3.  **JS 引擎的作用**  
-    容器内嵌 JS 引擎（如 Hermes、JavaScriptCore、V8 等），负责解释和执行 JS 代码(Bundle 形式)。JS 引擎是跨端的核心，因为它保证了业务 JS 代码能在各端一致运行。
+    **容器内嵌 JS 引擎**（如 Hermes、JavaScriptCore、V8 等），负责解释和执行 JS 代码(Bundle 形式)。JS 引擎是跨端的核心，因为它保证了业务 JS 代码能在各端一致运行。
 4. **Bridge 桥接机制**  
     JS 代码如需调用原生能力（如摄像头、定位、支付等），通过 Bridge 机制，JS 调用会被转发到原生实现，原生再将结果回传 JS。这样业务侧只需关注 JS 层逻辑，平台差异通过 Bridge 屏蔽。
 5. **资源和包管理**  
@@ -4949,7 +4948,6 @@ Flexbox 跨端的本质是：**用一份 DSL 模板描述 UI 布局，双端 Nat
 | **开发语言** | JavaScript / TypeScript | Dart | DSL 模板 + Native |
 | **业务逻辑** | JS 编写 | Dart 编写 | 各端 Native 编写 |
 
----
 
 **渲染方式**
 
@@ -4972,7 +4970,6 @@ MTFlexBox：
                            和 RN 一样依赖 Native 组件，但没有 JS 引擎
 ```
 
----
 
 **详细对比**
 
@@ -4990,7 +4987,6 @@ MTFlexBox：
 | **上手难度** | 中（会 JS 即可） | 高（需学 Dart） | 低（DSL 简单） |
 | **动态化能力** | ✅ 强（JS 动态下发） | ⚠️ 弱 | ✅ 中（DSL 下发） |
 
----
 
 **适用场景**
 
@@ -5015,19 +5011,11 @@ MTFlexBox
 ```
 
 ---
+**一句话区分**
 
-**类比总结**
-
-```
-MTFlexBox  ≈  只解决"排版"问题，像一个跨端的布局模板引擎
-RN         ≈  前端开发者用 JS 写 App，运行时翻译给 Native
-Flutter    ≈  完全自己造了一套 UI 体系，和 Native 几乎无关
-```
-
-> 💡 **一句话区分**
-> - **MTFlexBox**：只管怎么排版，业务你自己写。
-> - **RN**：用 JS 把业务和 UI 都跨端了，但依赖 Native 组件渲染。
-> - **Flutter**：把业务和 UI 都跨端了，而且连渲染也自己做。Flutter **几乎完全脱离了 Android View 绘制机制**，它只向系统借了一块 `SurfaceView` 画布，所有的 UI 组件、布局计算、绘制、事件分发全部由 Flutter 引擎自己接管，直接操作 GPU 渲染像素，和 Android View 那套 measure/layout/draw 流程完全无关。
+> **MTFlexBox**：只管怎么排版，业务你自己写。
+> **RN**：用 JS 把业务和 UI 都跨端了，但依赖 Native 组件渲染。
+> **Flutter**：把业务和 UI 都跨端了，而且连渲染也自己做。Flutter **几乎完全脱离了 Android View 绘制机制**，它只向系统借了一块 `SurfaceView` 画布，所有的 UI 组件、布局计算、绘制、事件分发全部由 Flutter 引擎自己接管，直接操作 GPU 渲染像素，和 Android View 那套 measure/layout/draw 流程完全无关。
 
 # 设计模式
 
