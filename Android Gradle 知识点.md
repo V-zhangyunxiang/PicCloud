@@ -1117,9 +1117,9 @@ gradlePlugin {
 }
 
 // 配置发布信息（和 AAR 类似）
-//    classpath 构件名的前两段：group + version
-//    最终构件坐标 = ${group}:${artifactId}:${version}
-//    artifactId 默认取项目名
+//  classpath 构件名的前两段：group + version
+//  最终构件坐标 = ${group}:${artifactId}:${version}
+//  artifactId 默认取项目名
 group = "com.example"
 version = "1.0.0"
 
