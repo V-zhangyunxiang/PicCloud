@@ -198,15 +198,14 @@ fun  main() {      
 
 ViewModel 是 Jetpack 架构组件之一，用于存储和管理与 UI 相关的数据，其生命周期与Activity/Fragment 的“配置变更”(如屏幕旋转、语言切换、分屏模式)无关，即使页面因配置变更重建，ViewModel 实例也会被保留，新页面可直接复用旧 ViewModel 中的数据。
 
-ViewModel 的生命周期与它所关联的 LifecycleOwner(如Activity/Fragment)的“完整生命周期”绑定，
-在 LifecycleOwner 的整个生命周期中，ViewModel 始终存活，当 LifecycleOwner 真正销毁时(如Activity 调用 finish()、Fragment 调用 remove() )，系统调用 ViewModel 的 onCleared() 方法，ViewModel 才会被销毁。
+ViewModel 的生命周期与它所关联的 LifecycleOwner(如Activity/Fragment)的“完整生命周期”绑定，在 LifecycleOwner 的整个生命周期中，ViewModel 始终存活，当 LifecycleOwner 真正销毁时(如Activity 调用 finish()、Fragment 调用 remove() )，系统调用 ViewModel 的 onCleared() 方法，ViewModel 才会被销毁。
 
 ViewModelProvider 是管理 ViewModel 生命周期的工具类，通过它获取 ViewModel 可确保配置变更时实例复用。
 
 - 使用 Kotlin 委托
   private val myViewModel: MyViewModel by viewModels()
 - 手动创建 ViewModelProvider
-  ViewModelProvider(this).get(MyViewModel-class.java)
+  ViewModelProvider(this).get(MyViewModel::class.java)
 ## 如何实现多个 Fragment 共享同一个 ViewModel 实例
 
 让它们从同一个“父 LifecycleOwner”(通常是所属的 Activity)获取 ViewModel，因为同一个 Activity 的 ViewModelProvider 会返回相同的 ViewModel 实例。

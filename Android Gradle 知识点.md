@@ -149,11 +149,11 @@ plugins {
 
 ```groovy
 plugins {  
-    alias(libs.plugins.android.application)  //引用 libs.versions.toml 配置使用 alias
+    alias(libs.plugins.android.application)  //引用 libs.versions.toml 配置使用 alias，默认 apply true。
 }  
   
 android {  
-    namespace 'com.example.myapplication'  //应用程序的命名空间,主要用于访问应用程序资源。
+    namespace 'com.example.myapplication'  //应用程序的命名空间，主要用于访问应用程序资源。
     compileSdk 36  
   
     defaultConfig {  
@@ -223,9 +223,9 @@ include ':app'
 
 位于项目的根目录下，用于指定 Gradle 构建工具包本身的设置，也可用于项目版本管理。
 
-Gradle 本身配置：比如 Gradle 守护程序的最大堆大小、编译缓存、并行编译、是否使用 Androidx 等等。
+**Gradle 本身配置**：比如 Gradle 守护程序的最大堆大小、编译缓存、并行编译、是否使用 Androidx 等等。
 
-版本管理：可以从 `gradle.properties` 文件中读取版本，不仅可以作用于依赖库，也可作用于依赖插件。本质上是`key-value`形式的参数。
+**版本管理**：可以从 `gradle.properties` 文件中读取版本，不仅可以作用于依赖库，也可作用于依赖插件。本质上是`key-value`形式的参数。
 
 ```text
 //功能开关
@@ -242,7 +242,7 @@ zyxPluginVersion="1.0.0" ////版本设置
 ```
 ## local.properties
 
-位于项目的根目录下，用于指定 Gradle 构建配置本地环境属性，也可用于项目环境管理。
+位于项目的根目录下，用于指定 Gradle 构建**配置本地环境**属性，也可用于**项目环境管理**。
 
 ```text
 //本地配置
@@ -340,6 +340,8 @@ buildscript {
     repositories {
         google()
         jcenter()  // 老版本常用 jcenter
+        maven {  //私有 maven 地址
+        }
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:4.2.2'
@@ -365,7 +367,7 @@ task clean(type: Delete) {
 `settings.gradle`（集中管理插件和依赖仓库）
 ```groovy
 pluginManagement {
-    repositories {
+    repositories {                     //服务对象为 Gradle 插件，解决的是构建工具需要什么。
         google()                    // AGP 等 Google 插件在这里
         mavenCentral()        // KGP 等 JetBrains 插件在这里
         gradlePluginPortal() // Gradle 官方插件门户
@@ -375,9 +377,9 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
-    // 可选模式：FAIL_ON_PROJECT_REPOS（默认）表示如果模块中还写了 repositories 会报错
+    // 可选模式：FAIL_ON_PROJECT_REPOS（默认），强制所有依赖只能从 settings.gradle 中声明的仓库解析。
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
+    repositories {     // 服务对象为应用程序的依赖库，解决的是 App 代码需要什么。
         google()
         mavenCentral()
         maven { url 'https://my-private-repo.com/repo' }  // 所有模块共享
@@ -535,16 +537,16 @@ val sum = { a: Int, b: Int -> a + b }
 
 ### 2. 只有一个参数时，可用 `it` 隐式代替
 
-如果Lambda只有一个参数，Kotlin允许你省略它并直接用 `it` 指代。
+如果 Lambda 只有一个参数，Kotlin 允许你省略它并直接用 `it` 指代。
 
 ```kotlin
 // 完整写法
 list.filter { item -> item > 0 }
 // 简写（使用it）
-list.filter { it > 0 } // 这行在Gradle中非常常见
+list.filter { it > 0 } // 这行在 Gradle 中非常常见
 ```
 
-### 3. 如果Lambda没有参数，`->` 可以完全省略
+### 3. 如果 Lambda 没有参数，`->` 可以完全省略
 
 ```kotlin
 val runnable = { println("Hello") } // 没有箭头，直接写执行体
@@ -552,7 +554,7 @@ val runnable = { println("Hello") } // 没有箭头，直接写执行体
 
 ### 4. 最后一行表达式是返回值(自动返回)
 
-Lambda内部不需要写 `return`，最后一行代码的结果自动作为返回值。
+Lambda 内部不需要写 `return`，最后一行代码的结果自动作为返回值。
 
 ```kotlin
 val result = { a: Int -> 
@@ -564,7 +566,7 @@ println(result(5)) // 输出 15
 
 ### 5. ⭐️ 最重要的规则：尾随 Lambda(Trailing Lambda)
 
-如果函数的**最后一个参数**是一个Lambda，你可以把它**移到括号外面**，如果只有这一个参数，括号也可以省略。
+如果函数的**最后一个参数**是一个 Lambda，你可以把花括号**移到括号外面**，如果只有这一个参数，括号也可以省略。
 
 ```kotlin
 android({ 
@@ -580,7 +582,9 @@ android {
 }
 ```
 
-# 为什么需要 lambda 解决了什么问题，只有 kotlin 才有 lamdba 的概念吗，Java  有吗
+# lambda 解决了什么问题，只有 kotlin 才有 lamdba 的概念吗，Java 有吗
+
+## Lambda 背景
 
 1. **需要 Lambda，是为了解决“把代码像数据一样传递”的刚需，并消灭冗余的“样板代码”。**
     
@@ -605,7 +609,7 @@ button.setOnClickListener(new OnClickListener() {
 button.setOnClickListener(v -> System.out.println("Hello"));
 ```
 
-**Java Lambda VS Kotlin Lambda**
+## Java Lambda VS Kotlin Lambda
 
 虽然都叫 Lambda，但它们的**实现原理**不同，这直接影响了在 Gradle 脚本中的体验。
 
@@ -634,57 +638,54 @@ Gradle 分三个阶段评估和运行构建，分别是 `Initialization (初始
 
 一次完整的 Gradle 构建，这些事件的触发顺序如下：
 
-1. **初始化阶段开始**
+**初始化阶段开始**
+
+1. ➡️ **`gradle.settingsEvaluated`**：`settings.gradle`执行完毕。
     
-2. ➡️ **`gradle.settingsEvaluated`**：`settings.gradle`执行完毕。
+2. ➡️ **`gradle.projectsLoaded`**：所有`Project`对象创建完成，初始化阶段结束。
     
-3. ➡️ **`gradle.projectsLoaded`**：所有`Project`对象创建完成，初始化阶段结束。
+**配置阶段开始**（对每个项目循环执行）
     
-4. **配置阶段开始**（对每个项目循环执行）
+3. ➡️ **`project.beforeEvaluate`**：当前项目的`build.gradle`执行前。
     
-5. ➡️ **`project.beforeEvaluate`**：当前项目的`build.gradle`执行前。
+4. **执行当前项目的 `build.gradle` 脚本**。
     
-6. **执行当前项目的 `build.gradle` 脚本**。
+5. ➡️ **`project.afterEvaluate`**：当前项目的`build.gradle`执行后。
     
-7. ➡️ **`project.afterEvaluate`**：当前项目的`build.gradle`执行后。
+**配置阶段结束**（所有项目配置完毕）
     
-8. **配置阶段结束**（所有项目配置完毕）
+6. ➡️ **`gradle.projectsEvaluated`**：所有项目配置完成。
     
-9. ➡️ **`gradle.projectsEvaluated`**：所有项目配置完成。
+7. ➡️ **`gradle.taskGraph.whenReady`**：任务依赖图构建完成。
     
-10. ➡️ **`gradle.taskGraph.whenReady`**：任务依赖图构建完成。
+**执行阶段开始**（对每个被请求的任务循环执行）
     
-11. **执行阶段开始**（对每个被请求的任务循环执行）
+8. ➡️ **`TaskExecutionListener.beforeExecute`**：当前任务执行前。
     
-12. ➡️ **`TaskExecutionListener.beforeExecute`**：当前任务执行前。
+9. ➡️ **`TaskActionListener.beforeActions`**：当前任务的动作执行前。
     
-13. ➡️ **`TaskActionListener.beforeActions`**：当前任务的动作执行前。
+10. **执行当前任务的 Actions**。
     
-14. **执行当前任务的 Actions**。
+11. ➡️ **`TaskActionListener.afterActions`**：当前任务的动作执行后。
     
-15. ➡️ **`TaskActionListener.afterActions`**：当前任务的动作执行后。
+12. ➡️ **`TaskExecutionListener.afterExecute`**：当前任务执行后。
     
-16. ➡️ **`TaskExecutionListener.afterExecute`**：当前任务执行后。
+**执行阶段结束**
     
-17. **执行阶段结束**
-    
-18. ➡️ **`gradle.buildFinished`**：整个构建结束。
+13. ➡️ **`gradle.buildFinished`**：整个构建结束。
 
 **注意事项**
 
 1. **注册位置至关重要**：`settingsEvaluated`、`projectsLoaded`以及`project.beforeEvaluate`都发生在项目脚本（`build.gradle`）执行之前。因此，**`project.beforeEvaluate`不能在当前的`build.gradle`中注册**，因为脚本执行时，这个事件已经错过了。它必须在`settings.gradle`或`init script`中注册。
-2. **`afterEvaluate`的多次调用**：如果一个项目配置了多个`afterEvaluate`回调，它们的执行顺序与注册顺序一致。
-3. **`TaskExecutionListener` vs `TaskActionListener`**：
-    
-    - `TaskExecutionListener`监听的是**整个任务**的生命周期。
-    - `TaskActionListener`监听的是任务内部具体的**动作（Actions）**。一个任务可能包含多个Action，`TaskActionListener`会为每个 Action 触发`beforeActions`和`afterActions`。
-    
-4. **`gradle.taskGraph.whenReady`的时机**：这个事件标志着**配置阶段正式结束，执行阶段即将开始**。此时，所有任务的依赖关系已经确定，但还没有任何任务开始执行。
+2. **afterEvaluate 的多次调用**：如果一个项目配置了多个`afterEvaluate`回调，**它们的执行顺序与注册顺序一致。**
+3. **TaskExecutionListener vs TaskActionListener**：
+  >   TaskExecutionListener 监听的是**整个任务**的生命周期。
+  >   TaskActionListener 监听的是任务内部具体的**动作(Actions)**。**一个任务可能包含多个Action，TaskActionListener 会为每个 Action 触发 beforeActions 和 afterActions**。
+4. **gradle.taskGraph.whenReady 的时机**：这个事件标志着**配置阶段正式结束，执行阶段即将开始**。此时，所有任务的依赖关系已经确定，但还没有任何任务开始执行。
 
 ## 生命周期方法应该在哪里注册
 
-**在 Gradle 中，每一个`build.gradle`文件都对应且仅对应一个`Project`对象。**  
-根目录下的`build.gradle`代表**根项目（Root Project）**，`app/`下的`build.gradle`代表**子项目(Subproject/Module)**。
+在 Gradle 中，**每一个 build.gradle 文件都对应且仅对应一个 Project 对象**。**根目录下的 build.gradle 代表根项目（Root Project），app / Library module 下的 build.gradle 代表子项目(Subproject/Module)。**
 
 |生命周期事件 / 监听器|推荐注册文件|理由（为什么不能放其他地方）|
 |---|---|---|
@@ -812,7 +813,7 @@ dependencies {
 
 ```groovy
 android {
-   resourcePrefix "app_"   // 所有资源名必须以app_开头（如app_icon.png）
+   resourcePrefix "app_"   // 所有资源名必须以 app_ 开头（如app_icon.png）
 }
 ```
 
@@ -820,7 +821,7 @@ android {
 
 ## 什么是 Task
 
-`Task`是一个任务，是`Gradle`中最小的`构建单元`。Gradle 构建的核心就是由 Task 组成的有向无环图，Task 管理了一个`Action`的 List，你可以在 List 前面插入一个 Action（doFirst），也可以从 list后面插入（doLast），Action 是最小的`执行单元`。
+Task 是一个任务，是 Gradle 中最小的构建单元。Gradle 构建的核心就是由 Task 组成的有向无环图，Task 管理了一个 Action 的 List，你可以在 List 前面插入一个 Action（doFirst），也可以从 List 后面插入（doLast），Action 是最小的执行单元。
 
 ## Task 写在哪
 
@@ -853,19 +854,19 @@ tasks.register("zyx") {
 //使用 ./gradlew zyx 执行 task，多个 task 用空格间隔
 ```
 
-通过 Plugin 的方式也可以创建 Task，重写的 apply 方法会有 Project 对象。
+通过 Plugin 的方式也可以创建 Task，重写的 apply 方法也会有 Project 对象。
 
 ## Task Action
 
-Task的 Action 就是编译时所需的操作，它不是一个，它是一组，可以有多个。一个 Task 内部维护了一个**有序的 Action 列表**。当执行 `./gradlew myTask` 时，Gradle 会**按顺序**遍历这个列表并执行。
+Task 的 Action 就是编译时所需的操作，**它不是一个，它是一组，可以有多个**。一个 Task 内部维护了一个**有序的 Action 列表**。当执行 `./gradlew myTask` 时，**Gradle 会按顺序遍历这个列表并执行。**
 
 这个列表的顺序是如何构建的？
 
-1. **首先**，Gradle 把你在自定义类中用 `@TaskAction` 标记的方法，封装成一个 Action，**放在列表的最中间（作为核心）**。
+1. 首先，Gradle 把你在自定义类中用 `@TaskAction` 标记的方法，封装成一个 Action，**放在列表的最中间（作为核心）**。
     
-2. **然后**，你调用 `doFirst`，Gradle 会把你的代码**插入到列表的头部**（类似压栈，所以写得越晚，反而越靠前）。
+2. 然后，你调用 `doFirst`，Gradle 会把你的代码**插入到列表的头部**（类似压栈，所以写得越晚，反而越靠前）。
     
-3. **最后**，你调用 `doLast`，Gradle 会把你的代码**追加到列表的尾部**。
+3. 最后，你调用 `doLast`，Gradle 会把你的代码**追加到列表的尾部**。
 
 所以，一个 Task 执行时的**真实执行顺序**是：
 
@@ -894,7 +895,7 @@ tasks.register("zyx", DemoTask) {
 输出结果：
  前置校验 2
  前置校验 1
- 我是传入的 -- 执行核心动作
+ 我是传入的 
  后置清理
 ```
 
@@ -1430,11 +1431,11 @@ buildTypes 是`构建类型`，用来定义构建类型配置，比如是否开�
 在多渠道配置中，构建类型与产品变种(productFlavors)一起使用，可以形成不同组合的构建变体(Variants)。
 ##  productFlavors 
 
-`productFlavors`中文翻译过来是`产品变种`，用来定义不同变种的包，每个风格可以有不同的配置和资源。
+`productFlavors`中文翻译过来是**产品变种**，用来定义不同变种的包，每个风格可以有不同的配置和资源。
 
 defaultConfig {}中的配置为应用默认配置，都可以在渠道配置 productFlavors {} 中进行覆写或追加。
 
-flavorDimensions 表示产品变种的`维度`(Dimensions)，是「组」的概念，这里定义的是「version」，名字可以自定义，也可以有多个。每个维度可以包含一个或多个产品变种，同一个维度即为一个产品变种组，Dimensions 就是用来将某个产品变种归类到特定维度中。**每个维度中的产品变种可以相互组合，生成不同的构建变体。**
+flavorDimensions 表示**产品变种的维度**(Dimensions)，是「组」的概念，这里定义的是「version」，名字可以自定义，也可以有多个。**每个维度可以包含一个或多个产品变种，同一个维度即为一个产品变种组**，Dimensions 就是用来将某个产品变种归类到特定维度中。**每个维度中的产品变种可以相互组合，生成不同的构建变体。**
 
 ```kotlin
 android {
@@ -1479,7 +1480,7 @@ android {
 
 如果存在一个 huawei 渠道的变体，想配置该渠道特殊资源，则执行如下操作，这样，在构建 huawei 渠道变体的时候，Gradle 会根据构建变体来找对应的目录文件。
 
-在app/src/目录下新建 huawei 文件夹，在 huawei 文件夹下再新增 res 文件夹。
+在 app/src/ 目录下新建 huawei 文件夹，在 huawei 文件夹下再新增 res 文件夹。
 
 - 在 res 文件夹下新增 mipmap 文件夹(mipmap-xxhdpi)，并放置华为版的应用图标 ic_launcher。
 - 在 res 文件夹下新增 values 文件夹，values 文件夹下新建 strings.xml 文件，并配置华为版的应用名称。
@@ -1505,7 +1506,7 @@ app/
 **合并规则**
 
 - 渠道构建时，渠道变体(huawei)会跟主变体(main)目录下的资源进行合并。
-- 如有同名配置资源，例如 strings.xml 文件中的 app_name，则优先取渠道(huawei)配置资源进行覆盖，其他不同名的则进行合并。
+- 如有同名配置资源，例如 strings.xml 文件中的 app_name，则**优先取渠道(huawei)配置资源进行覆盖**，其他不同名的则进行合并。
 - layout 文件、assets 文件则是替换，渠道资源(huawei)优先于主变体(main)资源。
 
 ## 渠道代码
@@ -1514,7 +1515,7 @@ app/
 
 ## SourceSets 
 
-`sourceSets` 的本质是**多层级的目录合并**，遵循 **“Build Type > Flavor > Main”** 的优先级进行合并。
+sourceSets 的本质是**多层级的目录合并**，遵循 **“Build Type > Flavor > Main”** 的优先级进行合并。
 
 - **Main (`src/main`)**：基础配置。
 - **Flavor (`src/oppo`)**：覆盖或增量补充 Main。
@@ -1555,7 +1556,7 @@ android {
 
 ### meta-data
 
-meta-data 标签通常在 AndroidManifest.xml 文件中使用，通过键值对的方式为组件提供附加配置信息。
+meta-data 标签通常在 AndroidManifest.xml 文件中使用，通过**键值对**的方式为组件**提供附加配置信息**。
 
 ```xml
 <application ...>
@@ -1564,7 +1565,7 @@ meta-data 标签通常在 AndroidManifest.xml 文件中使用，通过键值对�
 </application>
 ```
 
-通过 `manifestPlaceholders` 来替换 AndroidManifest.xml 文件中 `value` 的值，UMENG_CHANNEL_NAME 要对应上。在代码中则通过 PackageManager 获取并读取 meta-data 信息。
+然后通过 `manifestPlaceholders` 来替换 AndroidManifest.xml 文件中 `value` 的值，UMENG_CHANNEL_NAME 要对应上。在代码中则通过 PackageManager 获取并读取 meta-data 信息。
 ```groovy
     productFlavors {
         create("huawei") {
@@ -1668,9 +1669,9 @@ dependencies {
 
 ## ext
 
-`ext`全称Extra Properties Extension，是额外扩展属性的意思，以键值对的形式进行存储。
+`ext`全称 Extra Properties Extension，是额外扩展属性的意思，以键值对的形式进行存储。
 
-## version catalogs
+## Version Catalog
 
 `Version Catalogs`全称是version catalog libs，中文是「版本目录」的意思，是`Gradle 7.0`引入的一项新特性，允许你在一个集中式文件中管理所有依赖版本和插件版本。
 
@@ -1765,7 +1766,7 @@ android {
 
 ## 3. 为什么用了 Java 21 等新版本就会报错？
 
-这是因为**Gradle 版本过低，无法“认识”新版 JDK 产生的字节码格式**。
+这是因为 **Gradle 版本过低，无法“认识”新版 JDK 产生的字节码格式**。
 
 核心原因：Class File Version 冲突
 Java 的每个版本都有对应的类文件版本号（Class File Major Version）。
@@ -1785,7 +1786,7 @@ Gradle 与 Java 版本的兼容性矩阵
 | **Java 8**  | Gradle 2.0+     | 经典组合                |
 | **Java 11** | Gradle 5.0+     | AGP 7.0+ 的强制要求      |
 | **Java 17** | **Gradle 7.3+** | Spring Boot 3 的最低要求 |
-| **Java 21** | **Gradle 8.5+** | 2026年很多新框架的标准       |
+| **Java 21** | **Gradle 8.5+** | 2026 年很多新框架的标准      |
 
 **结论：**
 如果你想在项目中使用 **Java 21**，你必须将 `gradle-wrapper.properties` 中的 Gradle 版本升级到 **8.5** 或更高。如果你还在用 Gradle 7.x 或 8.0，它根本无法理解 Java 21 的环境，自然会报错。
@@ -1795,16 +1796,16 @@ Gradle 与 Java 版本的兼容性矩阵
 1.  **对于老项目**：保持 **AGP 7.x + Gradle 7.5 + JDK 11** 是最稳妥的“养老”配置，兼容性最好。
 2.  **对于新项目**：推荐直接上 **AGP 8.x + Gradle 8.7+ + JDK 17/21**，以享受构建速度提升。
 
-# Android Studio 版本、AGP、Gradle、JDK 这四个版本的关联关系如何记忆
+# Android Studio 版本、AGP、Gradle、JDK 这四个版本的关联关系是什么
 
 **Android Studio** (限制) ➔ **AGP** (依赖) ➔ **Gradle** (依赖) ➔ **JDK**
 
 1. **AS 决定 AGP**：
-    - 你装了**最新版 Android Studio**（包工头），它就强制要求你用**较新的 AGP**（图纸）。
+    - 装了**最新版 Android Studio**，它就强制要求你用**较新的 AGP**。
     - 比如：AS 2025 强行要求 AGP 4.0+。
 2. **AGP 决定 Gradle**：
-    - 你升级了 **AGP**（图纸），图纸上写着“需要高级工艺”，所以必须升级 **Gradle**（工人）。
+    - 升级了 **AGP**，必须同时升级 **Gradle**。
     - 比如：AGP 4.0 强行要求 Gradle 6.1+。
 3. **Gradle 决定 JDK**：
-    - 你升级了 **Gradle**（工人），新工人的身体构造变了，必须运行在 **新版 JDK**（环境）上。
+    - 升级了 **Gradle**，它要求运行在 **新版 JDK** 上。
     - 比如：Gradle 8.0+ 强行要求 JDK 17+ 才能跑起来。
