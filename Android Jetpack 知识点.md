@@ -795,13 +795,15 @@ ViewModel 通过 viewModelScope(Jetpack 扩展的协程作用域)处理异步任
 
 > ./gradlew app:dependencies --configuration releaseRuntimeClasspath
 
-**强制统一版本**：在 build.gradle 中用 resolutionStrategy 强制指定冲突库的版本。
+**强制统一版本**：在根目录 build.gradle 中用 resolutionStrategy 强制指定冲突库的版本。
 
 ```groovy
-configurations.all {
-    resolutionStrategy {
-        // 强制所有依赖使用指定版本的 Fragment
-        force "androidx.fragment:fragment:1.5.5"
+// 根目录 build.gradle
+allprojects {
+    configurations.all {
+        resolutionStrategy {
+            force 'androidx.fragment:fragment:1.5.5'
+        }
     }
 }
 ```

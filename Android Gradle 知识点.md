@@ -793,19 +793,35 @@ dependencies {
 
 - 多个模块的多个相同依赖，在没有约束条件的情况下，Gradle 会选择「最新策略」的决议方式，即选择最高版本。
 
-- 版本号带字母后缀，优先看前面的基础版本大小。它会先比较“基础版本”（如 `1.2.3`），如果相同再比较“限定符”（如 `-alpha`, `-beta`）。例如 `1.2.3-alpha` < `1.2.3` < `1.2.3-beta`。
+- 版本号带字母后缀，优先看前面的基础版本大小。它会先比较“基础版本”（如 `1.2.3`），如果相同再比较“限定符”（如 `-alpha`, `-beta`）。**限定符的排序规则比较复杂:**
 
-- force 优先级高于 strictly，如果二者同时显式声明，则会报错。**`strictly` 是更现代、更推荐的方式**
+>**dev 最低**：`1.0-dev < 1.0-alpha < 1.0-rc`。
+ **SNAPSHOT 按普通字符串排序**，它**不特殊高于**其他字符串。例如 `1.0-alpha < 1.0-SNAPSHOT < 1.0-zeta < 1.0-rc`。
+ >**rc、release、final、sp 等被特殊对待，高于普通字符串**：`1.0-zeta < 1.0-rc < 1.0-release < 1.0`。
 
-- **`strictly` (严格版本)**：作用于**单个依赖声明**，会覆盖传递依赖中的其他 `strictly` 声明。如果冲突无法解决，Gradle 会报错。
-    
-- **`force` (强制版本)**：作用于**整个配置（Configuration）**，如 `compileClasspath`。它会强制该配置中所有依赖都使用指定版本，甚至能覆盖其他 `strictly` 声明。
+- **`strictly` (严格版本)**：**是单个依赖上最强的版本约束**，**会覆盖传递依赖中的其他 `strictly` 声明**，无法满足时构建失败。如果两个**平级**的模块都声明了**互斥**的 `strictly` 版本（例如一个要 `1.0`，一个要 `2.0`），且无法通过版本范围协调，Gradle会**直接构建失败**，强制你显式解决冲突。
 
-- 同时使用 force 强制依赖版本时，版本决议的结果跟依赖顺序有关，最早 force 的版本优先。
+- **`force` (强制版本)**：虽能强制整个配置的版本，但已被官方废弃，存在难以排查的排序问题（后声明覆盖前声明），不再推荐使用。
 
 **现代 Gradle 官方的最佳实践是：**
 
-> 优先使用 `strictly` 来精确控制版本，并尽量避免使用 `force`。
+> 1.用 `strictly` 精确控制版本，用 `dependencies.constraints` 统一版本基线(根目录或子模块 build.gradle 都可以)，尽量避免 `force`。
+> 2.用 `exclude(group = "...", module = "...")` 切断冲突来源，然后**显式声明**你需要的版本。
+> 3.引入一个 BOM（物料清单），由它统一管理一组相关库的版本。你只需声明 `implementation(platform("..."))`，后续依赖无需再写版本号。
+
+strictly 使用示例：
+
+```groovy
+dependencies {
+    implementation("com.example:library-a:1.0") // 这个库内部严格依赖 B:2.0
+    // 你显式声明 B 的严格版本
+    implementation("com.example:library-b") {
+        version {
+            strictly("1.5") // 你的声明会覆盖 library-a 内部的 strictly("2.0")
+        }
+    }
+}
+```
 
 ## 资源冲突
 
