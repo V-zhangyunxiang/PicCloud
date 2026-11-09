@@ -154,7 +154,7 @@ ember 最近的全量版本近 7/14/30 天，拿这些数据：
 
 特征：大户是广告缓存、广告对象、mediation SDK；或 OOM 集中在「刚 load/show 广告」。
 
-去 poseidon 查这些（不用一次全看）：
+去 poseidon 查这些：
 
 1. 广告缓存有没有上限、过期有没有 `destroy`
 2. 后台是否还在 preload（看 `PreloadMemoryGuard` 是否生效）

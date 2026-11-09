@@ -6,9 +6,9 @@
 Application Not Responding - 应用程序无响应。当主线程在特定时间内未能完成关键操作时触发。
 
 ### 触发条件
-- **输入事件**：5秒内未响应
-- **BroadcastReceiver**：10秒内未完成
-- **Service**：20秒内未完成（前台服务）
+- **输入事件**：5 秒内未响应
+- **BroadcastReceiver**：10 秒内未完成
+- **Service**：20 秒内未完成（前台服务）
 
 ## 二、ANR 日志结构解析
 
@@ -35,26 +35,25 @@ CPU usage from XXXXms to YYYYms ago:
 
 - **`"main"`**：线程名称，主线程是Android应用的UI线程
 - **`prio=5`**：线程优先级（1-10，数值越大优先级越高）
-- **`tid=1`**：线程ID，主线程通常为1
-- **`Native`**：线程状态标识，表示正在执行Native代码
-
+- **`tid=1`**：线程 ID，主线程通常为 1
+- **`Native`**：线程状态标识，表示正在执行 Native 代码
 - **`group="main"`**：线程所属组
 - **`sCount=1`**：挂起计数（suspend count）
 - **`dsCount=0`**：调试器挂起计数
 - **`flags=1`**：线程标志位
-- **`obj=0x72a6c3d8`**：关联的Java对象地址
-- **`self=0xb4000079b8e9a000`**：线程本身的Native地址
+- **`obj=0x72a6c3d8`**：关联的 Java 对象地址
+- **`self=0xb4000079b8e9a000`**：线程本身的 Native 地址
 
-- **`sysTid=12345`**：系统级线程ID（在`ps`命令中可见）
-- **`nice=-10`**：Nice值，影响CPU调度（-20到19，越小优先级越高）
-- **`cgrp=default`**：CPU调度组
+- **`sysTid=12345`**：系统级线程 ID（在`ps`命令中可见）
+- **`nice=-10`**：Nice值，影响 CPU 调度（-20 到 19，越小优先级越高）
+- **`cgrp=default`**：CPU 调度组
 - **`sched=0/0`**：调度策略和实时优先级
 - **`handle=0x79b8f524f8`**：系统句柄
 
 - **`state=S`**：**关键字段** - 线程在内核中的状态
   - `S` = Sleeping（睡眠，等待事件）
   - `R` = Running（正在运行）
-  - `D` = Uninterruptible Sleep（不可中断睡眠，通常为I/O操作）
+  - `D` = Uninterruptible Sleep（不可中断睡眠，通常为 I/O 操作）
   - `Z` = Zombie（僵尸进程）
   - `T` = Stopped（暂停）
 
@@ -62,16 +61,16 @@ CPU usage from XXXXms to YYYYms ago:
   - 格式：`(运行时间, 等待时间, 执行次数)`
   - 单位：jiffies（1 jiffy = 10ms）
 
-- **`utm=10 stm=2`**：**关键字段** - CPU时间统计
-  - `utm=10`：用户态CPU时间 = 10 jiffies = 100ms
-  - `stm=2`：内核态CPU时间 = 2 jiffies = 20ms
+- **`utm=10 stm=2`**：**关键字段** - CPU 时间统计
+  - `utm=10`：用户态 CPU 时间 = 10 jiffies = 100ms
+  - `stm=2`：内核态 CPU 时间 = 2 jiffies = 20ms
   - 计算公式：`实际秒数 = (utm + stm) × 10ms`
 
-- **`core=3`**：最近运行该线程的CPU核心编号
-- **`HZ=100`**：系统时钟频率（每秒100个tick）
+- **`core=3`**：最近运行该线程的 CPU 核心编号
+- **`HZ=100`**：系统时钟频率（每秒 100 个 tick）
 
 - **`stack=0x7fe4e5a000-0x7fe4e5c000`**：栈内存地址范围
-- **`stackSize=8192KB`**：栈大小（主线程通常为8MB）
+- **`stackSize=8192KB`**：栈大小（主线程通常为 8MB）
 
 - **`held mutexes=`**：**关键字段** - 持有的互斥锁
   - 如果为空：没有持有任何锁
@@ -95,14 +94,14 @@ CPU usage from XXXXms to YYYYms ago:
   - 正常：`android.os.MessageQueue.nativePollOnce` → 主线程空闲
   - 异常：停留在业务代码 → 主线程自身阻塞
 
-**ANR分析中的关键判断**：
+**ANR 分析中的关键判断**：
 
 1. **正常状态**：主线程`state=S` + 堆栈在`nativePollOnce` + `held mutexes=`为空
    - 表示主线程正常等待消息，问题在其他线程
 
 2. **异常状态**：
    - `state=R` + 高`utm/stm` → 主线程自身执行耗时操作
-   - `state=D` → 主线程在不可中断的I/O操作中
+   - `state=D` → 主线程在不可中断的 I/O 操作中
    - `held mutexes`不为空 → 主线程持有锁，可能造成死锁
    - 堆栈停留在业务代码 → 直接定位问题位置
 
