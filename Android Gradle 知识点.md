@@ -1599,7 +1599,7 @@ BuildConfig 通常用来存储一些常量信息，比如版本号，或者在 b
 
 BuildConfig文件的位置在`<project-root>/app/build/generated/source/buildConfig/<variant-name>/<package-name>/BuildConfig.java`。
 
-在 Gradle8.+ 版本中，需要开启 BuildConfig 功能：
+在 Gradle 8+ 版本中，需要开启 BuildConfig 功能：
 ```groovy
 android {
 	buildFeatures {
@@ -1689,11 +1689,11 @@ dependencies {
 
 ## Version Catalog
 
-`Version Catalogs`全称是version catalog libs，中文是「版本目录」的意思，是`Gradle 7.0`引入的一项新特性，允许你在一个集中式文件中管理所有依赖版本和插件版本。
+Version Catalogs 全称是 version catalog libs，中文是「版本目录」的意思，是 Gradle 7.0 引入的一项新特性，允许你在一个集中式文件中管理所有依赖版本和插件版本。
 
 version catalogs 支持两种使用方式，一种是在 settings.gradle(.kts) 文件中声明，另一种是在单独的 libs.versions.toml 文件中声明，这种更解耦一些，推荐使用。
 
-在根项目的 gradle 文件夹中，创建一个名为 `libs.versions.toml`的文件。Gradle 默认会在 libs.versions.toml 文件中查找目录，因此建议使用此默认名称，这个叫`约定大于协议`。
+在根项目的 gradle 文件夹中，创建一个名为 `libs.versions.toml`的文件。Gradle 默认会在 libs.versions.toml 文件中查找目录，因此建议使用此默认名称，这个叫约定大于协议。
 
 在 libs.versions.toml 文件中，添加以下配置：
 
