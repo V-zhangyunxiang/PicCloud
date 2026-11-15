@@ -63,5 +63,5 @@ Crashlytics 收集的堆转储文件，其原始格式是 Android 平台标准�
 4. **执行开启命令**：输入以下命令并回车：
     
     firebase crashlytics:heapdumps:enable
-    
+
     执行成功后，Crashlytics 就会开始收集 OOM 等低内存事件的堆转储了。

@@ -612,7 +612,7 @@ WorkManager.getInstance(context)
 
 ## 如何监听任务的执行状态与结果
 
-通过 WorkManager.getWorkInfoByIdLiveData() 获取任务状态的 LiveData，实时监听任务生命周期(ENQUEUED→RUNNING→SUCCEEDED/FAILED/CANCELLED)。
+通过 **WorkManager.getWorkInfoByIdLiveData()** 获取任务状态的 LiveData，实时监听任务生命周期(ENQUEUED→RUNNING→SUCCEEDED/FAILED/CANCELLED)。
 
 1.设置任务结果：Worker 可通过 Data 类返回结果，在 doWork() 中设置：
 ```kotlin
