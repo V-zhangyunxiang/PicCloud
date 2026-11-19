@@ -1,0 +1,30 @@
+{
+  "pos_ecpm_version": "1.0.0",
+  "pos_ecpm_configs": [
+    {
+      "pos_ad_unit_id": "ca-app-pub-3940256099942544/1033173712",
+      "pos_estimated_ecpm": 120,
+      "pos_network": 2,
+      "pos_ad_type": 1,
+      "pos_ad_network_configs": [
+        {
+          "pos_network_unit_id": "ca-app-pub-3940256099942544/1033173712",
+          "pos_ad_source_id": 2,
+          "pos_estimated_ecpm": 140
+        }
+      ]
+    },
+    {
+      "pos_ad_unit_id": "n66f8c2cc68894",
+      "pos_estimated_ecpm": 20,
+      "pos_network": 26,
+      "pos_ad_type": 1
+    },
+    {
+      "pos_ad_unit_id": "n66f8cb0694904",
+      "pos_estimated_ecpm": 10,
+      "pos_network": 26,
+      "pos_ad_type": 1
+    }
+  ]
+}

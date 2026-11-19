@@ -1,0 +1,1875 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Poseidon Preload Memory Guard ANR/OOM Resolution</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fa;
+      --paper: #ffffff;
+      --ink: #1f2933;
+      --muted: #5d6976;
+      --line: #d8dee6;
+      --code-bg: #f1f4f8;
+      --accent: #1f6feb;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    main {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+    article {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 32px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    }
+    h1, h2, h3, h4 {
+      line-height: 1.2;
+      margin: 1.4em 0 0.55em;
+    }
+    h1 { margin-top: 0; font-size: 2rem; }
+    h2 { border-top: 1px solid var(--line); padding-top: 1em; font-size: 1.45rem; }
+    h3 { font-size: 1.16rem; }
+    p, ul, ol, table, pre { margin: 0.75em 0; }
+    a { color: var(--accent); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      display: block;
+      overflow-x: auto;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      vertical-align: top;
+    }
+    th { background: #eef2f7; text-align: left; }
+    code {
+      background: var(--code-bg);
+      border-radius: 4px;
+      padding: 0.1em 0.25em;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+    }
+    pre {
+      background: #111827;
+      color: #e5e7eb;
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+    }
+    pre code { background: transparent; color: inherit; padding: 0; }
+    blockquote {
+      margin: 1em 0;
+      padding: 0.1em 1em;
+      border-left: 4px solid var(--line);
+      color: var(--muted);
+      background: #fafbfc;
+    }
+    .mermaid {
+      margin: 1.25em 0;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      overflow-x: auto;
+    }
+    .fallback-note {
+      display: none;
+      margin-bottom: 16px;
+      color: #8a4b00;
+      background: #fff8e5;
+      border: 1px solid #f0d28a;
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    @media (max-width: 720px) {
+      main { padding: 16px 10px 36px; }
+      article { padding: 20px 14px; }
+      h1 { font-size: 1.55rem; }
+      h2 { font-size: 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <article id="content">
+      <div id="fallback-note" class="fallback-note">Markdown renderer did not load. Showing the complete source content below.</div>
+      <pre id="fallback-source"># Poseidon Ember/Lumina Crash and ANR Resolution Report
+
+## Source Scope
+
+We prepared this report to cover the Ember and Lumina crash/ANR summary supplied for this investigation. It explains each issue family, how we addressed each SDK-owned part, what `PreloadMemoryGuard` solves, and what remains outside Poseidon control.
+
+We centered the implementation on:
+
+- reducing Poseidon-owned scheduler/thread pressure,
+- keeping Poseidon orchestration off the main thread where possible,
+- preventing optional ad preloads under dangerous heap pressure,
+- exposing a minimal host memory-pressure callback,
+- reporting one diagnostic Firebase event per app session when heap reaches the 90-95% pressure band,
+- preserving skip analytics without adding OOM risk,
+- clearing fullscreen ad callback/listener retention found by LeakCanary,
+- avoiding consent-flow listener retention of destroyed Activities.
+
+## Scope Of Impact
+
+| Area | Impact |
+| --- | --- |
+| Products | Ember and Lumina. |
+| Poseidon shared preload | We protect shared pool ad loads with `PreloadMemoryGuard`. |
+| Poseidon automation preload | We route automation through the shared scheduler and run the memory guard before loading. |
+| Notification/specific-scene preload | We run the guard before these paths start ad SDK loading. |
+| Host cleanup | Host can subscribe to `LOW` and `CRITICAL` memory pressure and clear app-owned caches/resources. |
+| Thread pressure | We consolidated Poseidon-owned background scheduling through one shared worker. |
+| OOM pressure | We skip optional preload when Java heap is close to exhaustion. |
+| Device diagnostics | We report one Firebase diagnostic event per app session for devices that hit the 90-95% Java heap pressure band, and we defer reporting if heap is above 95%. |
+| LeakCanary Activity retention | We updated fullscreen show callbacks, TopOn/MAX fullscreen listener cleanup, and consent-flow pending callbacks to avoid retaining destroyed Activities. |
+| Third-party SDK internals | We did not change Google, TopOn, MAX, Pangle, Unity, WebView, or MediaCodec internals; those still need SDK/adapter/device-specific handling. |
+| Host/device issues | Foreground-service notification and storage-full crashes remain host/device work. |
+
+## Executive Summary
+
+The source summary shows the same two broad cross-product risks in Ember and Lumina:
+
+1. Too many threads and scheduler pressure.
+2. Repeated process-wide heap exhaustion where ad SDK code is often the final failed allocator.
+
+We addressed the SDK-owned portion with these changes:
+
+- `ThreadHelper.kt` uses a single `PoseidonWorker` for SDK background work.
+- `MainThreadExecutor` uses one reused `MainScope`.
+- Automation recurrence uses `dispatchToBackground` and `postDelayedToBackground` instead of repeated raw scheduling objects.
+- `PreloadMemoryGuard` prevents shared/automation/notification/specific preload from starting when heap pressure is unsafe.
+- `PreloadMemoryGuard` also feeds `PreloadMemoryPressureDeviceReporter`, which records device and memory context once per process session when heap pressure reaches the diagnostic range.
+- Host apps can subscribe to `PoseidonMemoryPressureListener` and release Glide, OkHttp, Lottie, SoundPlayer, or other app-owned memory when Poseidon detects `LOW` or `CRITICAL`.
+- LeakCanary follow-up fixes break SDK-owned destroyed-Activity retention through fullscreen ad callbacks, TopOn/MAX ad listeners, and consent-flow pending callbacks.
+
+We do not claim this proves the retained-memory owner for OOM. We prevent Poseidon from adding optional preload allocation at the worst possible time.
+
+## Issue-By-Issue Resolution
+
+### 1. Process Reaches About 140-154 Threads
+
+**Affected products:** Ember + Lumina  
+**Issue type:** Too many threads
+
+**Problem**
+
+Most threads belong to Google Ads, TopOn, MAX, WebView, adapters, and Android. Historical Poseidon timers added avoidable overhead but were not the majority.
+
+**What we changed**
+
+Poseidon background dispatch is centralized in `ThreadHelper.kt`:
+
+```kotlin
+private object BackgroundExecutor {
+    private val executor = ScheduledThreadPoolExecutor(1) { runnable -&gt;
+        Thread(..., "PoseidonWorker")
+    }
+}
+```
+
+The public SDK helpers use that shared executor:
+
+```kotlin
+fun dispatchToBackground(action: () -&gt; Unit)
+fun postDelayedToBackground(delayMillis: Long, action: () -&gt; Unit)
+```
+
+**How our change fixes Poseidon’s part**
+
+Poseidon no longer needs one new raw thread per background dispatch or one standalone timer per recurrence. Recurring SDK work is serialized through one SDK-owned worker.
+
+**What remains outside our change**
+
+Third-party SDK threads still dominate the process. Reducing those requires adapter route analysis, version upgrades, or product-specific mediation pruning.
+
+### 2. Poseidon Automation Callbacks And Repeated Coroutine Scheduling On Main
+
+**Affected products:** Ember + Lumina  
+**Issue type:** Too many threads / ANR risk
+
+**Problem**
+
+Several ANRs show Poseidon automation scheduling or coroutine-launch work sampled on main. This creates main-thread and scheduler pressure even when it is not proven to consume the full ANR timeout.
+
+**What we changed**
+
+Automation recurrence now dispatches interval resolution and delayed recurrence to background:
+
+```kotlin
+dispatchToBackground {
+    val delayMillis = resolveAutomationPreloadInterval(...)
+    postDelayedToBackground(delayMillis = delayMillis) {
+        preload(self)
+    }
+}
+```
+
+Main-thread posting uses one reused scope:
+
+```kotlin
+private object MainThreadExecutor {
+    private val scope = MainScope()
+}
+```
+
+**How our change fixes Poseidon’s part**
+
+Poseidon automation no longer needs repeated main-scope creation or repeated independent timer scheduling for recurrence. This directly addresses the sampled Poseidon orchestration frames in Lumina `anr_7.log`, `anr_12.log`, `anr_13.log`, and Ember `anr4.txt`, `anr6.txt`, `anr11.txt`.
+
+**What remains outside our change**
+
+If main is sampled inside third-party ad handlers, WebView, Google handlers, or AppLovin retry bookkeeping, those are separate ad-stack or platform routes.
+
+### 3. Repeated Process-Wide `OutOfMemoryError`
+
+**Affected products:** Ember + Lumina  
+**Issue type:** Memory/OOM; leak not proven
+
+**Problem**
+
+Both products exhaust heap. The stacks show final failed allocations, not the retained-memory owner. Without HPROF dominator analysis, no specific leak owner is proven.
+
+**What we changed**
+
+`PreloadMemoryGuard` reads Java heap state before optional preload:
+
+```kotlin
+val heapUsedBytes = runtime.totalMemory() - runtime.freeMemory()
+val heapMaxBytes = runtime.maxMemory()
+val isSystemLowMemory = context.isLowMemory()
+```
+
+It skips preload when pressure is unsafe:
+
+- foreground/background `CRITICAL`: heap usage `&gt;= 90%`,
+- foreground/background `CRITICAL`: heap headroom `&lt;= 16MiB`,
+- background `LOW`: heap usage crosses configured default `80%`,
+- background `LOW`: heap headroom crosses configured default `32MiB`,
+- background system low memory.
+
+**How our change fixes Poseidon’s part**
+
+Poseidon stops optional ad preload before it adds more heap pressure. This reduces the chance that Poseidon is the next allocator after the process is already near OOM.
+
+**What remains outside our change**
+
+The retained heap owner still needs HPROF dominator analysis. This fix is preventive and does not identify leaks.
+
+### 4. Google Ads OMID/JSON/HashMap Allocation Failures
+
+**Affected products:** Ember + Lumina  
+**Issue type:** Ad-associated OOM
+
+**Problem**
+
+Google code performs the final allocation in several crashes, but it may be the OOM victim rather than the component retaining heap.
+
+**What we changed**
+
+`PreloadMemoryGuard` prevents optional ad preload when heap pressure is unsafe. Google OMID/JSON/HashMap allocations often happen as part of ad SDK loading/rendering, so avoiding new preloads under pressure directly reduces the chance of this final allocation failure.
+
+**How our change fixes Poseidon’s part**
+
+When heap is critical, shared/automation/notification/specific preload returns before Google ad load can allocate more objects.
+
+**What remains outside our change**
+
+If Google code is reached through a user-visible show path or a third-party SDK internal path outside Poseidon preload, this guard does not stop it. GMA version compatibility and HPROF remain relevant.
+
+### 5. TopOn Allocation Failures
+
+**Affected products:** Ember + Lumina  
+**Issue type:** Ad-associated OOM
+
+**Problem**
+
+TopOn appears at final allocation in both products, but the traces do not prove a TopOn memory leak.
+
+**What we changed**
+
+TopOn load paths behind Poseidon shared/automation/specific/notification preload are protected by the same guard. If heap is already unsafe, Poseidon skips the preload before TopOn loader creation or adapter load calls.
+
+**How our change fixes Poseidon’s part**
+
+It reduces TopOn preload attempts when Java heap is already near exhaustion.
+
+**What remains outside our change**
+
+TopOn allocations from show-time, third-party internal retry, or adapter code outside Poseidon optional preload still require TopOn/adapter-specific investigation.
+
+### 6. Disabled Automation Or Specific-Scene Cache Appears In Stack
+
+**Affected products:** Ember + Lumina  
+**Issue type:** Neither proven leak nor ad crash
+
+**Problem**
+
+The source summary says these features generated no observed ad loads in the reviewed configuration, so their callbacks are sampled failure locations rather than proven OOM sources.
+
+**What we changed**
+
+Both paths are now guarded before load:
+
+```kotlin
+if (PreloadMemoryGuard.shouldSkipPreload(...)) {
+    PreloadMemoryGuard.reportSkip(...)
+    return
+}
+```
+
+Automation also uses shared scheduler dispatch instead of repeated independent scheduling.
+
+**How our change fixes Poseidon’s part**
+
+Even if these callbacks fire, they do not proceed into ad SDK preload under unsafe heap pressure.
+
+**What remains outside our change**
+
+If a product config should fully disable these features, that should be verified in config. A sampled callback frame alone does not prove a leak.
+
+### 7. Pangle Initialization Through MAX Crash
+
+**Affected product:** Ember  
+**Issue type:** Confirmed ad crash
+
+**Problem**
+
+The fatal path runs through Pangle/MAX adapter initialization.
+
+**What we changed**
+
+Poseidon’s guard can prevent optional MAX/Pangle preload under memory pressure, but it does not change Pangle/MAX adapter initialization logic.
+
+**How our change fixes Poseidon’s part**
+
+We prevent Poseidon from starting optional Pangle/MAX route preload when heap is unsafe.
+
+**What remains outside our change**
+
+This still needs exact SDK/adapter compatibility upgrade or route-specific disable. Do not disable all TopOn/MAX traffic unless route data justifies it.
+
+### 8. Google Video / MediaCodec Crashes
+
+**Affected product:** Ember  
+**Issue type:** Confirmed ad crash
+
+**Problem**
+
+The failure occurs during Google ad video rendering.
+
+**What we changed**
+
+`PreloadMemoryGuard` reduces the chance that a video ad preload begins during critical heap pressure. It does not control `MediaCodec` allocation, OS codec behavior, or creative contents.
+
+**How our change fixes Poseidon’s part**
+
+It blocks optional preload under dangerous memory conditions.
+
+**What remains outside our change**
+
+Device, OS, codec, creative, GMA, and adapter compatibility must be correlated before selecting an upgrade or route-level mitigation.
+
+### 9. TopOn Unity Adapter Metadata Crash
+
+**Affected product:** Ember  
+**Issue type:** Confirmed ad-adapter crash
+
+**Problem**
+
+The fatal path is TopOn -&gt; Unity adapter -&gt; Unity metadata.
+
+**What we changed**
+
+Poseidon skips optional TopOn/Unity route preload under heap pressure. It does not change Unity metadata parsing.
+
+**How our change fixes Poseidon’s part**
+
+It avoids starting optional preload into that adapter route when memory is unsafe.
+
+**What remains outside our change**
+
+Adapter-route isolation or exact TopOn/Unity adapter upgrade remains required.
+
+### 10. Native WebView Crashes
+
+**Affected products:** Ember + Lumina  
+**Issue type:** Possibly ad crash
+
+**Problem**
+
+WebView may be rendering an ad creative, but native stacks do not identify the responsible network or creative.
+
+**What we changed**
+
+Poseidon avoids optional preload starts when heap is unsafe, reducing the chance of creating new WebView-backed ad resources during pressure.
+
+**How our change fixes Poseidon’s part**
+
+It mitigates preload-time WebView allocation pressure.
+
+**What remains outside our change**
+
+Native WebView failures still require WebView version, multiprocess, creative, and network correlation.
+
+### 11. BLAST / Corner-Radius / Rendering Crashes
+
+**Affected products:** Ember + Lumina  
+**Issue type:** Platform crash, not proven ad crash
+
+**Problem**
+
+Stacks are in Android rendering code and lack evidence to attribute them to Poseidon or an ad network.
+
+**What we changed**
+
+We do not control BLAST/corner-radius platform rendering internals.
+
+**How our change fixes Poseidon’s part**
+
+We did not make a direct rendering fix. Memory-pressure preload reduction may lower process stress but is not a rendering crash fix.
+
+**What remains outside our change**
+
+Needs Android version/device/rendering analysis.
+
+### 12. Foreground-Service Notification Or Storage-Full Crashes
+
+**Affected products:** Ember + Lumina  
+**Issue type:** Host-app/device issue
+
+**Problem**
+
+Lumina has invalid foreground-service notification failures. Ember has `ENOSPC` DataStore failures. Neither is caused by Poseidon mediation.
+
+**What we changed**
+
+We did not make a Poseidon mediation change for this issue.
+
+**How our change fixes Poseidon’s part**
+
+Nothing in `PreloadMemoryGuard` or scheduler work fixes invalid notifications or full device storage.
+
+**What remains outside our change**
+
+Host app must fix notification lifecycle/channel validity and handle storage-full/DataStore failure paths.
+
+## LeakCanary Follow-Up Fixes
+
+LeakCanary HPROF analysis gave concrete retained-object chains after the preload guard work. These traces proved SDK-owned references were keeping destroyed Activities reachable in specific callback/listener paths. The fixes below are separate from `PreloadMemoryGuard`: the guard prevents optional preload under pressure, while these changes break retained reference chains.
+
+### A. MAX Fullscreen Callback Retention
+
+**Observed chain**
+
+```text
+MaxInterstitialLoad$MaxInterstitialAd$$ExternalSyntheticLambda1
+-&gt; MaxInterstitialLoad$MaxInterstitialAd
+-&gt; fullScreenContentCallbackAtomic
+-&gt; PoseidonAPIProcessor$platformShowFullscreenAd$show$callback$1
+-&gt; PoseidonAPIProcessor$showInterstitialAd$2
+-&gt; PlatformInterstitialAdShowParameter
+-&gt; destroyed Activity
+```
+
+**Root cause**
+
+MAX fullscreen revenue/listener callbacks could keep the MAX wrapper alive. The wrapper held `InnerFullScreenContentCallback`, and the processor callback captured the host show parameter, which held the Activity.
+
+**What we changed**
+
+MAX fullscreen load/show cleanup was tightened:
+
+- `MaxInterstitialLoad.kt`: clears MAX listener and revenue listener and destroys the ad on load failure.
+- `MaxInterstitialLoad.kt`: wraps `showAd()` and destroys on synchronous show failure.
+- `MaxInterstitialLoad.kt`: destroys after display failure.
+- `MaxRewardedLoad.kt`: applies the same load-failure, show-failure, and display-failure cleanup.
+- `MaxOpenLoad.kt`: applies load-failure cleanup and synchronous show-failure cleanup.
+
+The fullscreen processor callback was also changed so open/interstitial/rewarded callbacks copy only scalar fields before callback creation:
+
+```kotlin
+val sceneName = showParameter.sceneName
+val showParameterLog = showParameter.toString()
+```
+
+Callback bodies now use those copies instead of closing over `showParameter`.
+
+**Proof of fix**
+
+The leak chain depended on `PoseidonAPIProcessor$showInterstitialAd$2.$showParameter`. After the change, the fullscreen callback no longer needs to retain `PlatformInterstitialAdShowParameter`, so a third-party retained ad callback no longer keeps the destroyed Activity through Poseidon’s callback object.
+
+### B. TopOn Interstitial Activity Retention
+
+**Observed chain**
+
+```text
+com.thinkup.interstitial.d.m.dd
+-&gt; ConcurrentHashMap["n69bb9e8852cb0"]
+-&gt; TUInterstitial
+-&gt; TUInterstitial.mAdRevenueListener
+-&gt; TopOnInterstitialAd
+-&gt; fullScreenContentCallbackAtomic
+-&gt; PoseidonAPIProcessor$platformShowFullscreenAd$show$callback$1
+-&gt; PoseidonAPIProcessor$showInterstitialAd$2
+-&gt; PlatformInterstitialAdShowParameter
+-&gt; destroyed PrayerDetailActivity
+```
+
+**Root cause**
+
+TopOn kept `TUInterstitial` reachable from a static map. The SDK-owned revenue listener captured `TopOnInterstitialAd`; that wrapper retained the fullscreen callback; the callback retained the show parameter Activity.
+
+**What we changed**
+
+- `TopOnInterstitialShow.kt` observes the host lifecycle while showing.
+- If the host Activity is destroyed before TopOn sends close, `destroy()` runs.
+- `destroy()` removes the lifecycle observer, clears TopOn ad listener, clears TopOn revenue listener, nulls `TUInterstitial`, and clears the fullscreen callback.
+- `TopOnInterstitialLoad.kt` clears TopOn listeners on load failure and destroys the wrapper after video/show error.
+- `TopOnRewardedLoad.kt` applies equivalent load-failure and play-failure cleanup.
+- `TopOnOpenLoad.kt` drops its loader-held `TUSplashAd` after successful handoff and clears listeners on no-ad failure or dismiss.
+- `TopOnOpenShow.kt` clears the static `TUSplashAd` handoff reference if `startActivity()` fails and clears pending references on host Activity destroy.
+
+**Proof of fix**
+
+The trace required both `TUInterstitial.mAdRevenueListener` and `TopOnInterstitialAd.fullScreenContentCallbackAtomic` to remain populated after Activity destroy. The new destroy path clears both when close/failure happens or when the host Activity is destroyed.
+
+### C. Consent Flow Activity Retention
+
+**Observed chain**
+
+```text
+ConsentInfoUpdateManager.INSTANCE
+-&gt; TaskScheduler.listeners
+-&gt; ConsentInfoUpdateManager$requestConsentInfoUpdate$1
+-&gt; ConsentFlowCoordinator callback
+-&gt; PlatformConsentFormShowParameter
+-&gt; destroyed MainActivity
+```
+
+A second related trace showed:
+
+```text
+Google consent worker #1
+-&gt; Java local
+-&gt; destroyed SplashActivity
+```
+
+**Root cause**
+
+The pending consent-info listener could strongly capture `PlatformConsentFormShowParameter`, which holds an Activity. Separately, Google UMP can retain the Activity passed to `requestConsentInfoUpdate` while its worker is still running.
+
+**What we changed**
+
+- `ConsentFlowCoordinator.kt` now stores only a `WeakReference&lt;Activity&gt;` while waiting for consent-info update.
+- It rebuilds `PlatformConsentFormShowParameter` only when the Activity is still alive and usable.
+- If the Activity is gone, the show is dropped and consent-form state is finished.
+- `ConsentManagementPlatform.kt` refuses to start UMP consent-info update with an Activity that is finishing or destroyed.
+
+**Proof of fix**
+
+The SDK-owned chain required `TaskScheduler.listeners` to hold a callback that strongly retained `PlatformConsentFormShowParameter.activity`. The pending callback now holds a weak Activity reference instead, so the destroyed Activity is not kept alive by `ConsentInfoUpdateManager`.
+
+The Google worker trace can still exist briefly while UMP is actively executing because Google’s API requires an Activity. The SDK now avoids starting that request with an Activity already finishing or destroyed.
+
+### D. Room / `poseidon.db` Retention Interpretation
+
+**Observed evidence**
+
+Leak analysis reported an open `/data/user/0/.../databases/poseidon.db` retaining about `32MB`.
+
+**Codebase interpretation**
+
+`poseidon.db` is intentionally a lazy singleton Room database:
+
+```kotlin
+val database: PoseidonRoomDatabase by lazy(mode = LazyThreadSafetyMode.SYNCHRONIZED) {
+    createDatabase(driverFactory = driverFactory)
+}
+```
+
+It is built with `context.applicationContext` and `WRITE_AHEAD_LOGGING`, then prewarmed during SDK initialization:
+
+```kotlin
+database.openHelper.writableDatabase
+```
+
+**Resolution**
+
+We did not find proof of Activity retention by the database reference. The retained size is consistent with an open SQLite/Room connection, WAL/page cache, or mapped/native database memory. It should not be treated as the same problem as the Activity leak chains above unless a dominator path shows `poseidon.db` retaining an Activity, View, listener, or ad object.
+
+## Exact ANR Mapping
+
+| ANR file | Product | Relation | Poseidon resolution |
+| --- | --- | --- | --- |
+| `anr_7.log` | Lumina | Poseidon directly on main | Automation delayed callback now routes recurrence through shared background scheduling; preload checks memory before load. |
+| `anr_12.log` | Lumina | Poseidon directly on main | Repeated coroutine/scope pressure is reduced by shared `PoseidonWorker` and reused main scope. |
+| `anr_13.log` | Lumina | Poseidon directly on main | Automation and show-limit related SDK work is centralized; preload is guarded. |
+| `anr4.txt` | Ember | Poseidon directly on main | Automation coroutine construction/scheduling pressure is reduced. |
+| `anr6.txt` | Ember | Poseidon directly on main | Automation delayed callback no longer needs independent timer-style recurrence. |
+| `anr11.txt` | Ember | Poseidon directly on main | Main-thread launch pressure is reduced by shared executor/scope. |
+| `anr_9.log` | Lumina | Poseidon background-thread evidence | SDK background work is serialized through `PoseidonWorker`; not a proven main cause. |
+| `anr2.txt`, `anr13.txt` | Ember | Poseidon background-thread evidence | Show-limit/cloud-config failures are SDK work but not sampled main cause; background serialization reduces thread pressure. |
+| `anr10.txt` | Ember | Poseidon scheduler evidence | SDK timer evidence is addressed by shared scheduling, but main cause is not established by that frame alone. |
+| `anr8.txt` | Ember | Google ad contention | Not direct Poseidon frame; needs Google/Dynamite investigation. |
+| `anr_6.log`, `anr_10.log`, `anr_11.log` | Lumina | Google Ads ANR evidence | Not Poseidon orchestration; guard can reduce optional preload starts only. |
+| `anr_2.log`, `anr_14.log` | Lumina | WebView/ad-stack evidence | Guard reduces preload-time WebView pressure; network/creative proof is missing. |
+| `anr7.txt` | Ember | AppLovin ad-stack evidence | Not direct Poseidon automation; route/version analysis needed. |
+| `anr10.txt`, `anr10-10.txt` | Ember | Google/framework contention | Not direct Poseidon automation; framework/ad-stack contention remains separate. |
+
+## PreloadMemoryGuard Technical Design
+
+### Protected Entry Points
+
+| File | Guarded preload path |
+| --- | --- |
+| `SharedAdPool.kt` | Shared floor/ceil ad pool preload. |
+| `Automation.kt` | Automation preload recurrence. |
+| `SpecificAdSceneCacheBackup.kt` | Specific-scene cache backup preload. |
+| `NotificationSplashAdManager.kt` | Notification splash preload. |
+
+### Parameters
+
+Remote config:
+
+| Parameter | Default | Clamp | Meaning |
+| --- | --- | --- | --- |
+| `poseidon_background_low_memory_preload_guard_enabled` | `true` | Boolean | Enables/disables guard. |
+| `poseidon_background_preload_max_heap_usage_percent` | `80` | `50..95` | LOW heap usage threshold. |
+| `poseidon_background_preload_min_heap_headroom_mb` | `32` | `8..128` | LOW headroom threshold. |
+
+Internal thresholds:
+
+| Constant | Value | Meaning |
+| --- | --- | --- |
+| `CRITICAL_HEAP_USAGE_PERCENT` | `90` | Critical skip threshold in foreground or background. |
+| `CRITICAL_HEAP_HEADROOM_MB` | `16MiB` | Critical headroom threshold in foreground or background. |
+| `MIN_REPORTING_HEAP_HEADROOM_MB` | `16MiB` | Suppress analytics if reporting could worsen OOM. |
+| `SKIP_REPORT_INTERVAL_MILLIS` | `15 minutes` | Rate-limit `BACKGROUND_LOW_MEMORY_PRELOAD` analytics. |
+| `MEMORY_PRESSURE_NOTIFY_INTERVAL_MILLIS` | `5 minutes` | Rate-limit same-level host callbacks. |
+| `LOW_MEMORY_PRESSURE_RECOVERY_HEAP_USAGE_PERCENT` | `70` | Re-arm host callback after recovery. |
+| `LOW_MEMORY_PRESSURE_RECOVERY_HEAP_HEADROOM_MB` | `64MiB` | Re-arm host callback only when enough headroom returns. |
+
+Runtime fields:
+
+| Field | Source |
+| --- | --- |
+| `foreground` | `PoseidonSetupProcessor.isAppInForeground` |
+| `systemLowMemory` | `ActivityManager.MemoryInfo.lowMemory` |
+| `heapUsedBytes` | `Runtime.totalMemory() - Runtime.freeMemory()` |
+| `heapMaxBytes` | `Runtime.maxMemory()` |
+| `heapHeadroomBytes` | `heapMaxBytes - heapUsedBytes` |
+| `heapUsagePercent` | `heapUsedBytes * 100 / heapMaxBytes` |
+
+### Decision Flow
+
+```mermaid
+flowchart TD
+    A[Optional preload requested] --&gt; B[Read remote config]
+    B --&gt; C[Measure heap and system lowMemory]
+    C --&gt; D{Guard disabled or invalid heap?}
+    D -- Yes --&gt; E[Allow preload]
+    D -- No --&gt; F{Critical: heap &gt;= 90% or headroom &lt;= 16MiB?}
+    F -- Yes --&gt; G[Notify host CRITICAL]
+    G --&gt; H[Skip preload]
+    F -- No --&gt; I{Foreground?}
+    I -- Yes --&gt; J{LOW threshold crossed?}
+    J -- Yes --&gt; K[Notify host LOW]
+    K --&gt; E
+    J -- No --&gt; E
+    I -- No --&gt; L{System lowMemory?}
+    L -- Yes --&gt; G
+    L -- No --&gt; M{LOW threshold crossed?}
+    M -- Yes --&gt; N[Notify host LOW]
+    N --&gt; H
+    M -- No --&gt; E
+```
+
+Foreground behavior:
+
+- `LOW` notifies host but allows preload.
+- `CRITICAL` skips preload.
+
+Background behavior:
+
+- `LOW` skips preload.
+- `CRITICAL` skips preload.
+
+### Host Memory Pressure Callback
+
+```kotlin
+PoseidonAPI.setMemoryPressureListener { event -&gt;
+    when (event.level) {
+        PoseidonMemoryPressureLevel.LOW -&gt; {
+            // Clear cheap/rebuildable caches.
+        }
+        PoseidonMemoryPressureLevel.CRITICAL -&gt; {
+            // Release aggressive recreatable resources.
+        }
+    }
+}
+```
+
+Public event:
+
+```kotlin
+data class PoseidonMemoryPressureEvent(
+    val level: PoseidonMemoryPressureLevel,
+    val foreground: Boolean,
+    val systemLowMemory: Boolean,
+    val heapUsagePercent: Int,
+    val heapHeadroomBytes: Long,
+)
+```
+
+No scene, ad unit, mediation, or internal thresholds are exposed to the host.
+
+### Callback Suppression
+
+```mermaid
+stateDiagram-v2
+    [*] --&gt; NORMAL
+    NORMAL --&gt; LOW: LOW threshold crossed
+    NORMAL --&gt; CRITICAL: CRITICAL threshold crossed
+    LOW --&gt; CRITICAL: escalation fires immediately
+    LOW --&gt; LOW: same level suppressed for 5 minutes
+    CRITICAL --&gt; CRITICAL: same level suppressed for 5 minutes
+    LOW --&gt; NORMAL: heap &lt;= 70% and headroom &gt;= 64MiB
+    CRITICAL --&gt; NORMAL: heap &lt;= 70% and headroom &gt;= 64MiB
+```
+
+The host callback fires:
+
+- on first entry into `LOW`,
+- on first entry into `CRITICAL`,
+- immediately on `LOW -&gt; CRITICAL`,
+- again after 5 minutes if still at the same level,
+- again after recovery and re-entry.
+
+### Memory Pressure Device Reporter
+
+We added `PreloadMemoryPressureDeviceReporter` to measure how useful the guard is across real devices. We use this diagnostic event to identify which device classes reach dangerous Java heap pressure before optional preload decisions.
+
+Event name:
+
+```text
+preload_memory_pressure_device
+```
+
+Observed Firebase analyzer sample:
+
+```text
+logEvent: name=preload_memory_pressure_device, parameters={trigger_reason=high_heap_pressure, foreground=true, system_low_memory=false, guard_enabled=true, guard_max_heap_usage_percent=80, guard_min_heap_headroom_mb=32, report_min_heap_usage_percent=90, report_defer_heap_usage_percent=95, heap_usage_percent=90, heap_used_mb=462, heap_max_mb=512, heap_headroom_mb=49, runtime_max_heap_mb=512, system_total_ram_mb=3559, system_avail_ram_mb=852, system_low_memory_threshold_mb=127, app_large_heap=true, android_sdk_int=35, android_release=15, manufacturer=samsung, brand=samsung, model=SM-A156U1, device=a15x, product=a15xue, hardware=mt6835, supported_abis=arm64-v8a,armeabi-v7a,armeabi, screen_density=2.8125, screen_width_px=1080, screen_height_px=2340, poseidon_config_version=1.0.7}
+```
+
+What this sample proves:
+
+- The event fired at `heap_usage_percent=90`, which is inside the immediate reporting band.
+- The event did not wait for recovery because it was below the defer line: `report_defer_heap_usage_percent=95`.
+- The Java heap was close to the configured critical usage threshold: `heap_used_mb=462`, `heap_max_mb=512`, `heap_headroom_mb=49`.
+- The device context was captured without scene name, ad unit ID, mediation ID, callback object, Activity, or ad object.
+- The sample gives us enough context to group pressure by model (`SM-A156U1`), Android version (`15` / SDK `35`), physical RAM (`3559MiB`), app heap size (`512MiB`), ABI, and display bucket.
+
+Remote controls:
+
+| Parameter | Default | Clamp | Meaning |
+| --- | --- | --- | --- |
+| `poseidon_memory_pressure_device_report_enabled` | `true` | Boolean | Enables/disables this diagnostic reporter. |
+| `poseidon_memory_pressure_device_report_min_percent` | `90` | `80..95` | Lower bound for immediate one-session diagnostic reporting. |
+| `poseidon_memory_pressure_device_report_defer_percent` | `95` | `minPercent..99` | Above this value, we cache instead of reporting immediately. |
+| `poseidon_analyzer_enable_preload_memory_pressure_device` | `true` | Boolean | Existing reporter-level Firebase gate. |
+
+Operation:
+
+| Heap state | Behavior |
+| --- | --- |
+| `&lt; 90%` with no pending snapshot | We do not report. |
+| `90..95%` with enough reporting headroom | We report immediately once for the app process session. |
+| `90..95%` without reporting headroom | We cache the snapshot and wait for safer heap headroom. |
+| `&gt; 95%` | We do not report immediately. We cache the highest-pressure snapshot. |
+| Pending snapshot and heap becomes safe enough | We flush the cached snapshot once for the app process session. |
+| Already reported this session | We do not report again. |
+
+Why we defer above 95%:
+
+- Firebase reporting allocates objects.
+- At `&gt;95%` heap usage, even small allocations can push the process closer to OOM.
+- We keep only a lightweight in-memory snapshot and flush it later when heap headroom returns.
+
+Collected fields:
+
+| Group | Fields |
+| --- | --- |
+| Trigger | `trigger_reason`, `foreground`, `system_low_memory`, `guard_enabled` |
+| Guard config | `guard_max_heap_usage_percent`, `guard_min_heap_headroom_mb`, `report_min_heap_usage_percent`, `report_defer_heap_usage_percent` |
+| Java heap | `heap_usage_percent`, `heap_used_mb`, `heap_max_mb`, `heap_headroom_mb`, `runtime_max_heap_mb` |
+| System RAM | `system_total_ram_mb`, `system_avail_ram_mb`, `system_low_memory_threshold_mb` |
+| App heap config | `app_large_heap` |
+| Android build | `android_sdk_int`, `android_release`, `manufacturer`, `brand`, `model`, `device`, `product`, `hardware`, `supported_abis` |
+| Display bucket | `screen_density`, `screen_width_px`, `screen_height_px` |
+| Strategy context | `poseidon_config_version` from the shared reporter base |
+
+We intentionally do not include scene name, ad unit ID, mediation ID, or callback objects. This keeps the event about device pressure and avoids accidentally tying the diagnostic event to a retained ad object.
+
+What this lets us analyze:
+
+- which models hit 90%+ heap usage,
+- whether the issue clusters by Android version, manufacturer, ABI, or screen class,
+- whether app heap size is small relative to physical RAM,
+- whether `largeHeap` devices behave differently,
+- whether foreground pressure is more common than background pressure,
+- whether system low-memory state correlates with Java heap pressure.
+
+## Stress Test Evidence
+
+Detailed manual test cases are documented in `doc/preload-memory-guard-test-cases.md`.
+
+### Test Setup
+
+The stress test uses a debug-only heap pressure helper to retain large `ByteArray` blocks until target heap usage is reached. The target was pushed beyond normal warning levels into critical pressure.
+
+The key validation scenarios were:
+
+1. Heap below critical in foreground: preload allowed.
+2. Heap at `90%+` in foreground: preload skipped.
+3. Heap at `95%+`: repeated shared floor/ceil preload attempts skipped.
+4. Repeated critical callbacks suppressed by cooldown.
+5. Skip analytics suppressed by the 15-minute report interval.
+
+### Observed Critical Pressure
+
+Representative log:
+
+```text
+background preload memory guard input: enabled=true(raw=), foreground=true, systemLowMemory=false, maxHeapUsagePercent=80(raw=), minHeapHeadroomMb=32(raw=), heapUsed=497MiB, heapMax=512MiB, heapHeadroom=14MiB, heapUsagePercent=97%
+
+background preload memory guard thresholds: foreground=true, systemLowMemory=false, criticalUsageThreshold=460MiB, criticalHeadroomThreshold=16MiB, heapUsed=497MiB, heapMax=512MiB, heapHeadroom=14MiB, heapUsagePercent=97%
+
+skip background preload: critical heap pressure, used=497MiB, headroom=14MiB, criticalUsageThreshold=460MiB, criticalHeadroomThreshold=16MiB
+```
+
+Why this proves the guard works:
+
+- `heapUsed=497MiB` is above `criticalUsageThreshold=460MiB`.
+- `heapHeadroom=14MiB` is below `criticalHeadroomThreshold=16MiB`.
+- The app is foreground, but critical pressure still skips preload.
+- This directly prevents another optional ad preload allocation while only 14MiB of Java heap headroom remains.
+
+### Observed Callback Cooldown
+
+Representative log:
+
+```text
+suppress host memory pressure callback: level=CRITICAL, cooldown active
+```
+
+Why this is expected:
+
+- The first `CRITICAL` entry notifies the host.
+- Repeated shared pool attempts remain at `CRITICAL`.
+- Same-level host callback is suppressed for 5 minutes to avoid calling host cleanup repeatedly on every preload attempt.
+
+This is important because `SharedFloorAdPool` and `SharedCeilAdPool` can both attempt preload during the same pressure window.
+
+### Observed Skip Report Rate Limit
+
+Representative log:
+
+```text
+report background preload skip: scene=SharedFloorAdPool, hasLoadCallback=false, reportAnalytics=false
+drop background preload skip report: no callback and analytics is rate limited
+```
+
+Why this is expected:
+
+- The preload was skipped.
+- There was no ad load callback to notify.
+- Skip analytics had already been reported recently.
+- Repeated skip analytics is suppressed for 15 minutes.
+
+This prevents analytics itself from adding work and allocations while memory is critical.
+
+### Observed Shared Pool Protection
+
+The stress run repeatedly showed both shared pools protected:
+
+```text
+report background preload skip: scene=SharedFloorAdPool, hasLoadCallback=false, reportAnalytics=false
+report background preload skip: scene=SharedCeilAdPool, hasLoadCallback=false, reportAnalytics=false
+```
+
+This proves both shared preload paths reached the guard and were blocked during the same critical heap window.
+
+## Whether Our Changes Solve The Ember/Lumina Issues
+
+| Question | Answer |
+| --- | --- |
+| Same too-many-threads issue? | Yes. Poseidon-owned scheduler/thread overhead is reduced with one shared worker and reused main scope. Third-party SDK threads remain. |
+| Same memory/OOM issue? | Yes. `PreloadMemoryGuard` mitigates Poseidon optional preload under low memory. Leak owner is still unproven without HPROF. |
+| Same confirmed ad crash? | No. Confirmed Pangle/MAX, Google video, and TopOn Unity adapter crashes require route/version/device-specific handling. |
+| Does the guard solve Google/TopOn final allocation OOM? | We prevent Poseidon from starting optional preload when heap is unsafe; it does not prove or fix the retained-memory owner. |
+| Does the host get a trim signal? | Yes. `LOW` and `CRITICAL` are exposed through `PoseidonMemoryPressureListener`. |
+| Does it fire repeatedly? | No. Same-level callbacks are suppressed for 5 minutes and re-armed after recovery. Escalation from `LOW` to `CRITICAL` fires immediately. |
+
+## Verification
+
+Unit tests:
+
+```bash
+./gradlew :poseidon:testLuminaDebugUnitTest
+./gradlew :poseidon:testEmberDebugUnitTest
+```
+
+Manual stress verification:
+
+- Use the heap pressure helper from `doc/preload-memory-guard-test-cases.md`.
+- Allocate to `90%+` and trigger shared preload.
+- Verify `skip background preload: critical heap pressure`.
+- Allocate to `95%+` and repeat shared preload.
+- Verify `suppress host memory pressure callback: level=CRITICAL, cooldown active`.
+- Verify repeated analytics logs show `reportAnalytics=false`.
+
+LeakCanary verification:
+
+- Show a MAX interstitial, rotate or finish the host Activity, then wait for LeakCanary retained-object analysis.
+- Confirm there is no chain from `MaxInterstitialLoad$MaxInterstitialAd` through `fullScreenContentCallbackAtomic` to `PlatformInterstitialAdShowParameter.activity`.
+- Show a TopOn interstitial, finish the host Activity before or around ad close, then wait for LeakCanary retained-object analysis.
+- Confirm there is no chain from `TUInterstitial.mAdRevenueListener` through `TopOnInterstitialAd.fullScreenContentCallbackAtomic` to `PlatformInterstitialAdShowParameter.activity`.
+- Trigger consent flow from an Activity, finish that Activity while consent-info update is pending, then wait for LeakCanary retained-object analysis.
+- Confirm there is no SDK-owned chain from `ConsentInfoUpdateManager.TaskScheduler.listeners` to `PlatformConsentFormShowParameter.activity`.
+- Treat a short-lived `Google consent worker #1 -&gt; Activity` chain as external UMP in-flight work unless it remains after UMP callback completion and no Poseidon listener path appears.
+
+## Final Assessment
+
+Our Poseidon changes address the Ember/Lumina SDK-owned issues:
+
+- Poseidon scheduling/thread overhead is reduced.
+- Poseidon main-thread automation pressure is reduced.
+- Optional ad preload is blocked under critical heap pressure.
+- Host apps receive a minimal memory-pressure signal for cleanup.
+- Repeated callback and analytics spam are suppressed during sustained pressure.
+
+We do not claim to fix third-party adapter crashes, MediaCodec failures, native WebView crashes, Android rendering crashes, invalid foreground-service notifications, or storage-full device failures. Those remain separate product, adapter, or platform workstreams.
+</pre>
+    </article>
+  </main>
+  <textarea id="markdown-source" hidden># Poseidon Ember/Lumina Crash and ANR Resolution Report
+
+## Source Scope
+
+We prepared this report to cover the Ember and Lumina crash/ANR summary supplied for this investigation. It explains each issue family, how we addressed each SDK-owned part, what `PreloadMemoryGuard` solves, and what remains outside Poseidon control.
+
+We centered the implementation on:
+
+- reducing Poseidon-owned scheduler/thread pressure,
+- keeping Poseidon orchestration off the main thread where possible,
+- preventing optional ad preloads under dangerous heap pressure,
+- exposing a minimal host memory-pressure callback,
+- reporting one diagnostic Firebase event per app session when heap reaches the 90-95% pressure band,
+- preserving skip analytics without adding OOM risk,
+- clearing fullscreen ad callback/listener retention found by LeakCanary,
+- avoiding consent-flow listener retention of destroyed Activities.
+
+## Scope Of Impact
+
+| Area | Impact |
+| --- | --- |
+| Products | Ember and Lumina. |
+| Poseidon shared preload | We protect shared pool ad loads with `PreloadMemoryGuard`. |
+| Poseidon automation preload | We route automation through the shared scheduler and run the memory guard before loading. |
+| Notification/specific-scene preload | We run the guard before these paths start ad SDK loading. |
+| Host cleanup | Host can subscribe to `LOW` and `CRITICAL` memory pressure and clear app-owned caches/resources. |
+| Thread pressure | We consolidated Poseidon-owned background scheduling through one shared worker. |
+| OOM pressure | We skip optional preload when Java heap is close to exhaustion. |
+| Device diagnostics | We report one Firebase diagnostic event per app session for devices that hit the 90-95% Java heap pressure band, and we defer reporting if heap is above 95%. |
+| LeakCanary Activity retention | We updated fullscreen show callbacks, TopOn/MAX fullscreen listener cleanup, and consent-flow pending callbacks to avoid retaining destroyed Activities. |
+| Third-party SDK internals | We did not change Google, TopOn, MAX, Pangle, Unity, WebView, or MediaCodec internals; those still need SDK/adapter/device-specific handling. |
+| Host/device issues | Foreground-service notification and storage-full crashes remain host/device work. |
+
+## Executive Summary
+
+The source summary shows the same two broad cross-product risks in Ember and Lumina:
+
+1. Too many threads and scheduler pressure.
+2. Repeated process-wide heap exhaustion where ad SDK code is often the final failed allocator.
+
+We addressed the SDK-owned portion with these changes:
+
+- `ThreadHelper.kt` uses a single `PoseidonWorker` for SDK background work.
+- `MainThreadExecutor` uses one reused `MainScope`.
+- Automation recurrence uses `dispatchToBackground` and `postDelayedToBackground` instead of repeated raw scheduling objects.
+- `PreloadMemoryGuard` prevents shared/automation/notification/specific preload from starting when heap pressure is unsafe.
+- `PreloadMemoryGuard` also feeds `PreloadMemoryPressureDeviceReporter`, which records device and memory context once per process session when heap pressure reaches the diagnostic range.
+- Host apps can subscribe to `PoseidonMemoryPressureListener` and release Glide, OkHttp, Lottie, SoundPlayer, or other app-owned memory when Poseidon detects `LOW` or `CRITICAL`.
+- LeakCanary follow-up fixes break SDK-owned destroyed-Activity retention through fullscreen ad callbacks, TopOn/MAX ad listeners, and consent-flow pending callbacks.
+
+We do not claim this proves the retained-memory owner for OOM. We prevent Poseidon from adding optional preload allocation at the worst possible time.
+
+## Issue-By-Issue Resolution
+
+### 1. Process Reaches About 140-154 Threads
+
+**Affected products:** Ember + Lumina  
+**Issue type:** Too many threads
+
+**Problem**
+
+Most threads belong to Google Ads, TopOn, MAX, WebView, adapters, and Android. Historical Poseidon timers added avoidable overhead but were not the majority.
+
+**What we changed**
+
+Poseidon background dispatch is centralized in `ThreadHelper.kt`:
+
+```kotlin
+private object BackgroundExecutor {
+    private val executor = ScheduledThreadPoolExecutor(1) { runnable -&gt;
+        Thread(..., "PoseidonWorker")
+    }
+}
+```
+
+The public SDK helpers use that shared executor:
+
+```kotlin
+fun dispatchToBackground(action: () -&gt; Unit)
+fun postDelayedToBackground(delayMillis: Long, action: () -&gt; Unit)
+```
+
+**How our change fixes Poseidon’s part**
+
+Poseidon no longer needs one new raw thread per background dispatch or one standalone timer per recurrence. Recurring SDK work is serialized through one SDK-owned worker.
+
+**What remains outside our change**
+
+Third-party SDK threads still dominate the process. Reducing those requires adapter route analysis, version upgrades, or product-specific mediation pruning.
+
+### 2. Poseidon Automation Callbacks And Repeated Coroutine Scheduling On Main
+
+**Affected products:** Ember + Lumina  
+**Issue type:** Too many threads / ANR risk
+
+**Problem**
+
+Several ANRs show Poseidon automation scheduling or coroutine-launch work sampled on main. This creates main-thread and scheduler pressure even when it is not proven to consume the full ANR timeout.
+
+**What we changed**
+
+Automation recurrence now dispatches interval resolution and delayed recurrence to background:
+
+```kotlin
+dispatchToBackground {
+    val delayMillis = resolveAutomationPreloadInterval(...)
+    postDelayedToBackground(delayMillis = delayMillis) {
+        preload(self)
+    }
+}
+```
+
+Main-thread posting uses one reused scope:
+
+```kotlin
+private object MainThreadExecutor {
+    private val scope = MainScope()
+}
+```
+
+**How our change fixes Poseidon’s part**
+
+Poseidon automation no longer needs repeated main-scope creation or repeated independent timer scheduling for recurrence. This directly addresses the sampled Poseidon orchestration frames in Lumina `anr_7.log`, `anr_12.log`, `anr_13.log`, and Ember `anr4.txt`, `anr6.txt`, `anr11.txt`.
+
+**What remains outside our change**
+
+If main is sampled inside third-party ad handlers, WebView, Google handlers, or AppLovin retry bookkeeping, those are separate ad-stack or platform routes.
+
+### 3. Repeated Process-Wide `OutOfMemoryError`
+
+**Affected products:** Ember + Lumina  
+**Issue type:** Memory/OOM; leak not proven
+
+**Problem**
+
+Both products exhaust heap. The stacks show final failed allocations, not the retained-memory owner. Without HPROF dominator analysis, no specific leak owner is proven.
+
+**What we changed**
+
+`PreloadMemoryGuard` reads Java heap state before optional preload:
+
+```kotlin
+val heapUsedBytes = runtime.totalMemory() - runtime.freeMemory()
+val heapMaxBytes = runtime.maxMemory()
+val isSystemLowMemory = context.isLowMemory()
+```
+
+It skips preload when pressure is unsafe:
+
+- foreground/background `CRITICAL`: heap usage `&gt;= 90%`,
+- foreground/background `CRITICAL`: heap headroom `&lt;= 16MiB`,
+- background `LOW`: heap usage crosses configured default `80%`,
+- background `LOW`: heap headroom crosses configured default `32MiB`,
+- background system low memory.
+
+**How our change fixes Poseidon’s part**
+
+Poseidon stops optional ad preload before it adds more heap pressure. This reduces the chance that Poseidon is the next allocator after the process is already near OOM.
+
+**What remains outside our change**
+
+The retained heap owner still needs HPROF dominator analysis. This fix is preventive and does not identify leaks.
+
+### 4. Google Ads OMID/JSON/HashMap Allocation Failures
+
+**Affected products:** Ember + Lumina  
+**Issue type:** Ad-associated OOM
+
+**Problem**
+
+Google code performs the final allocation in several crashes, but it may be the OOM victim rather than the component retaining heap.
+
+**What we changed**
+
+`PreloadMemoryGuard` prevents optional ad preload when heap pressure is unsafe. Google OMID/JSON/HashMap allocations often happen as part of ad SDK loading/rendering, so avoiding new preloads under pressure directly reduces the chance of this final allocation failure.
+
+**How our change fixes Poseidon’s part**
+
+When heap is critical, shared/automation/notification/specific preload returns before Google ad load can allocate more objects.
+
+**What remains outside our change**
+
+If Google code is reached through a user-visible show path or a third-party SDK internal path outside Poseidon preload, this guard does not stop it. GMA version compatibility and HPROF remain relevant.
+
+### 5. TopOn Allocation Failures
+
+**Affected products:** Ember + Lumina  
+**Issue type:** Ad-associated OOM
+
+**Problem**
+
+TopOn appears at final allocation in both products, but the traces do not prove a TopOn memory leak.
+
+**What we changed**
+
+TopOn load paths behind Poseidon shared/automation/specific/notification preload are protected by the same guard. If heap is already unsafe, Poseidon skips the preload before TopOn loader creation or adapter load calls.
+
+**How our change fixes Poseidon’s part**
+
+It reduces TopOn preload attempts when Java heap is already near exhaustion.
+
+**What remains outside our change**
+
+TopOn allocations from show-time, third-party internal retry, or adapter code outside Poseidon optional preload still require TopOn/adapter-specific investigation.
+
+### 6. Disabled Automation Or Specific-Scene Cache Appears In Stack
+
+**Affected products:** Ember + Lumina  
+**Issue type:** Neither proven leak nor ad crash
+
+**Problem**
+
+The source summary says these features generated no observed ad loads in the reviewed configuration, so their callbacks are sampled failure locations rather than proven OOM sources.
+
+**What we changed**
+
+Both paths are now guarded before load:
+
+```kotlin
+if (PreloadMemoryGuard.shouldSkipPreload(...)) {
+    PreloadMemoryGuard.reportSkip(...)
+    return
+}
+```
+
+Automation also uses shared scheduler dispatch instead of repeated independent scheduling.
+
+**How our change fixes Poseidon’s part**
+
+Even if these callbacks fire, they do not proceed into ad SDK preload under unsafe heap pressure.
+
+**What remains outside our change**
+
+If a product config should fully disable these features, that should be verified in config. A sampled callback frame alone does not prove a leak.
+
+### 7. Pangle Initialization Through MAX Crash
+
+**Affected product:** Ember  
+**Issue type:** Confirmed ad crash
+
+**Problem**
+
+The fatal path runs through Pangle/MAX adapter initialization.
+
+**What we changed**
+
+Poseidon’s guard can prevent optional MAX/Pangle preload under memory pressure, but it does not change Pangle/MAX adapter initialization logic.
+
+**How our change fixes Poseidon’s part**
+
+We prevent Poseidon from starting optional Pangle/MAX route preload when heap is unsafe.
+
+**What remains outside our change**
+
+This still needs exact SDK/adapter compatibility upgrade or route-specific disable. Do not disable all TopOn/MAX traffic unless route data justifies it.
+
+### 8. Google Video / MediaCodec Crashes
+
+**Affected product:** Ember  
+**Issue type:** Confirmed ad crash
+
+**Problem**
+
+The failure occurs during Google ad video rendering.
+
+**What we changed**
+
+`PreloadMemoryGuard` reduces the chance that a video ad preload begins during critical heap pressure. It does not control `MediaCodec` allocation, OS codec behavior, or creative contents.
+
+**How our change fixes Poseidon’s part**
+
+It blocks optional preload under dangerous memory conditions.
+
+**What remains outside our change**
+
+Device, OS, codec, creative, GMA, and adapter compatibility must be correlated before selecting an upgrade or route-level mitigation.
+
+### 9. TopOn Unity Adapter Metadata Crash
+
+**Affected product:** Ember  
+**Issue type:** Confirmed ad-adapter crash
+
+**Problem**
+
+The fatal path is TopOn -&gt; Unity adapter -&gt; Unity metadata.
+
+**What we changed**
+
+Poseidon skips optional TopOn/Unity route preload under heap pressure. It does not change Unity metadata parsing.
+
+**How our change fixes Poseidon’s part**
+
+It avoids starting optional preload into that adapter route when memory is unsafe.
+
+**What remains outside our change**
+
+Adapter-route isolation or exact TopOn/Unity adapter upgrade remains required.
+
+### 10. Native WebView Crashes
+
+**Affected products:** Ember + Lumina  
+**Issue type:** Possibly ad crash
+
+**Problem**
+
+WebView may be rendering an ad creative, but native stacks do not identify the responsible network or creative.
+
+**What we changed**
+
+Poseidon avoids optional preload starts when heap is unsafe, reducing the chance of creating new WebView-backed ad resources during pressure.
+
+**How our change fixes Poseidon’s part**
+
+It mitigates preload-time WebView allocation pressure.
+
+**What remains outside our change**
+
+Native WebView failures still require WebView version, multiprocess, creative, and network correlation.
+
+### 11. BLAST / Corner-Radius / Rendering Crashes
+
+**Affected products:** Ember + Lumina  
+**Issue type:** Platform crash, not proven ad crash
+
+**Problem**
+
+Stacks are in Android rendering code and lack evidence to attribute them to Poseidon or an ad network.
+
+**What we changed**
+
+We do not control BLAST/corner-radius platform rendering internals.
+
+**How our change fixes Poseidon’s part**
+
+We did not make a direct rendering fix. Memory-pressure preload reduction may lower process stress but is not a rendering crash fix.
+
+**What remains outside our change**
+
+Needs Android version/device/rendering analysis.
+
+### 12. Foreground-Service Notification Or Storage-Full Crashes
+
+**Affected products:** Ember + Lumina  
+**Issue type:** Host-app/device issue
+
+**Problem**
+
+Lumina has invalid foreground-service notification failures. Ember has `ENOSPC` DataStore failures. Neither is caused by Poseidon mediation.
+
+**What we changed**
+
+We did not make a Poseidon mediation change for this issue.
+
+**How our change fixes Poseidon’s part**
+
+Nothing in `PreloadMemoryGuard` or scheduler work fixes invalid notifications or full device storage.
+
+**What remains outside our change**
+
+Host app must fix notification lifecycle/channel validity and handle storage-full/DataStore failure paths.
+
+## LeakCanary Follow-Up Fixes
+
+LeakCanary HPROF analysis gave concrete retained-object chains after the preload guard work. These traces proved SDK-owned references were keeping destroyed Activities reachable in specific callback/listener paths. The fixes below are separate from `PreloadMemoryGuard`: the guard prevents optional preload under pressure, while these changes break retained reference chains.
+
+### A. MAX Fullscreen Callback Retention
+
+**Observed chain**
+
+```text
+MaxInterstitialLoad$MaxInterstitialAd$$ExternalSyntheticLambda1
+-&gt; MaxInterstitialLoad$MaxInterstitialAd
+-&gt; fullScreenContentCallbackAtomic
+-&gt; PoseidonAPIProcessor$platformShowFullscreenAd$show$callback$1
+-&gt; PoseidonAPIProcessor$showInterstitialAd$2
+-&gt; PlatformInterstitialAdShowParameter
+-&gt; destroyed Activity
+```
+
+**Root cause**
+
+MAX fullscreen revenue/listener callbacks could keep the MAX wrapper alive. The wrapper held `InnerFullScreenContentCallback`, and the processor callback captured the host show parameter, which held the Activity.
+
+**What we changed**
+
+MAX fullscreen load/show cleanup was tightened:
+
+- `MaxInterstitialLoad.kt`: clears MAX listener and revenue listener and destroys the ad on load failure.
+- `MaxInterstitialLoad.kt`: wraps `showAd()` and destroys on synchronous show failure.
+- `MaxInterstitialLoad.kt`: destroys after display failure.
+- `MaxRewardedLoad.kt`: applies the same load-failure, show-failure, and display-failure cleanup.
+- `MaxOpenLoad.kt`: applies load-failure cleanup and synchronous show-failure cleanup.
+
+The fullscreen processor callback was also changed so open/interstitial/rewarded callbacks copy only scalar fields before callback creation:
+
+```kotlin
+val sceneName = showParameter.sceneName
+val showParameterLog = showParameter.toString()
+```
+
+Callback bodies now use those copies instead of closing over `showParameter`.
+
+**Proof of fix**
+
+The leak chain depended on `PoseidonAPIProcessor$showInterstitialAd$2.$showParameter`. After the change, the fullscreen callback no longer needs to retain `PlatformInterstitialAdShowParameter`, so a third-party retained ad callback no longer keeps the destroyed Activity through Poseidon’s callback object.
+
+### B. TopOn Interstitial Activity Retention
+
+**Observed chain**
+
+```text
+com.thinkup.interstitial.d.m.dd
+-&gt; ConcurrentHashMap["n69bb9e8852cb0"]
+-&gt; TUInterstitial
+-&gt; TUInterstitial.mAdRevenueListener
+-&gt; TopOnInterstitialAd
+-&gt; fullScreenContentCallbackAtomic
+-&gt; PoseidonAPIProcessor$platformShowFullscreenAd$show$callback$1
+-&gt; PoseidonAPIProcessor$showInterstitialAd$2
+-&gt; PlatformInterstitialAdShowParameter
+-&gt; destroyed PrayerDetailActivity
+```
+
+**Root cause**
+
+TopOn kept `TUInterstitial` reachable from a static map. The SDK-owned revenue listener captured `TopOnInterstitialAd`; that wrapper retained the fullscreen callback; the callback retained the show parameter Activity.
+
+**What we changed**
+
+- `TopOnInterstitialShow.kt` observes the host lifecycle while showing.
+- If the host Activity is destroyed before TopOn sends close, `destroy()` runs.
+- `destroy()` removes the lifecycle observer, clears TopOn ad listener, clears TopOn revenue listener, nulls `TUInterstitial`, and clears the fullscreen callback.
+- `TopOnInterstitialLoad.kt` clears TopOn listeners on load failure and destroys the wrapper after video/show error.
+- `TopOnRewardedLoad.kt` applies equivalent load-failure and play-failure cleanup.
+- `TopOnOpenLoad.kt` drops its loader-held `TUSplashAd` after successful handoff and clears listeners on no-ad failure or dismiss.
+- `TopOnOpenShow.kt` clears the static `TUSplashAd` handoff reference if `startActivity()` fails and clears pending references on host Activity destroy.
+
+**Proof of fix**
+
+The trace required both `TUInterstitial.mAdRevenueListener` and `TopOnInterstitialAd.fullScreenContentCallbackAtomic` to remain populated after Activity destroy. The new destroy path clears both when close/failure happens or when the host Activity is destroyed.
+
+### C. Consent Flow Activity Retention
+
+**Observed chain**
+
+```text
+ConsentInfoUpdateManager.INSTANCE
+-&gt; TaskScheduler.listeners
+-&gt; ConsentInfoUpdateManager$requestConsentInfoUpdate$1
+-&gt; ConsentFlowCoordinator callback
+-&gt; PlatformConsentFormShowParameter
+-&gt; destroyed MainActivity
+```
+
+A second related trace showed:
+
+```text
+Google consent worker #1
+-&gt; Java local
+-&gt; destroyed SplashActivity
+```
+
+**Root cause**
+
+The pending consent-info listener could strongly capture `PlatformConsentFormShowParameter`, which holds an Activity. Separately, Google UMP can retain the Activity passed to `requestConsentInfoUpdate` while its worker is still running.
+
+**What we changed**
+
+- `ConsentFlowCoordinator.kt` now stores only a `WeakReference&lt;Activity&gt;` while waiting for consent-info update.
+- It rebuilds `PlatformConsentFormShowParameter` only when the Activity is still alive and usable.
+- If the Activity is gone, the show is dropped and consent-form state is finished.
+- `ConsentManagementPlatform.kt` refuses to start UMP consent-info update with an Activity that is finishing or destroyed.
+
+**Proof of fix**
+
+The SDK-owned chain required `TaskScheduler.listeners` to hold a callback that strongly retained `PlatformConsentFormShowParameter.activity`. The pending callback now holds a weak Activity reference instead, so the destroyed Activity is not kept alive by `ConsentInfoUpdateManager`.
+
+The Google worker trace can still exist briefly while UMP is actively executing because Google’s API requires an Activity. The SDK now avoids starting that request with an Activity already finishing or destroyed.
+
+### D. Room / `poseidon.db` Retention Interpretation
+
+**Observed evidence**
+
+Leak analysis reported an open `/data/user/0/.../databases/poseidon.db` retaining about `32MB`.
+
+**Codebase interpretation**
+
+`poseidon.db` is intentionally a lazy singleton Room database:
+
+```kotlin
+val database: PoseidonRoomDatabase by lazy(mode = LazyThreadSafetyMode.SYNCHRONIZED) {
+    createDatabase(driverFactory = driverFactory)
+}
+```
+
+It is built with `context.applicationContext` and `WRITE_AHEAD_LOGGING`, then prewarmed during SDK initialization:
+
+```kotlin
+database.openHelper.writableDatabase
+```
+
+**Resolution**
+
+We did not find proof of Activity retention by the database reference. The retained size is consistent with an open SQLite/Room connection, WAL/page cache, or mapped/native database memory. It should not be treated as the same problem as the Activity leak chains above unless a dominator path shows `poseidon.db` retaining an Activity, View, listener, or ad object.
+
+## Exact ANR Mapping
+
+| ANR file | Product | Relation | Poseidon resolution |
+| --- | --- | --- | --- |
+| `anr_7.log` | Lumina | Poseidon directly on main | Automation delayed callback now routes recurrence through shared background scheduling; preload checks memory before load. |
+| `anr_12.log` | Lumina | Poseidon directly on main | Repeated coroutine/scope pressure is reduced by shared `PoseidonWorker` and reused main scope. |
+| `anr_13.log` | Lumina | Poseidon directly on main | Automation and show-limit related SDK work is centralized; preload is guarded. |
+| `anr4.txt` | Ember | Poseidon directly on main | Automation coroutine construction/scheduling pressure is reduced. |
+| `anr6.txt` | Ember | Poseidon directly on main | Automation delayed callback no longer needs independent timer-style recurrence. |
+| `anr11.txt` | Ember | Poseidon directly on main | Main-thread launch pressure is reduced by shared executor/scope. |
+| `anr_9.log` | Lumina | Poseidon background-thread evidence | SDK background work is serialized through `PoseidonWorker`; not a proven main cause. |
+| `anr2.txt`, `anr13.txt` | Ember | Poseidon background-thread evidence | Show-limit/cloud-config failures are SDK work but not sampled main cause; background serialization reduces thread pressure. |
+| `anr10.txt` | Ember | Poseidon scheduler evidence | SDK timer evidence is addressed by shared scheduling, but main cause is not established by that frame alone. |
+| `anr8.txt` | Ember | Google ad contention | Not direct Poseidon frame; needs Google/Dynamite investigation. |
+| `anr_6.log`, `anr_10.log`, `anr_11.log` | Lumina | Google Ads ANR evidence | Not Poseidon orchestration; guard can reduce optional preload starts only. |
+| `anr_2.log`, `anr_14.log` | Lumina | WebView/ad-stack evidence | Guard reduces preload-time WebView pressure; network/creative proof is missing. |
+| `anr7.txt` | Ember | AppLovin ad-stack evidence | Not direct Poseidon automation; route/version analysis needed. |
+| `anr10.txt`, `anr10-10.txt` | Ember | Google/framework contention | Not direct Poseidon automation; framework/ad-stack contention remains separate. |
+
+## PreloadMemoryGuard Technical Design
+
+### Protected Entry Points
+
+| File | Guarded preload path |
+| --- | --- |
+| `SharedAdPool.kt` | Shared floor/ceil ad pool preload. |
+| `Automation.kt` | Automation preload recurrence. |
+| `SpecificAdSceneCacheBackup.kt` | Specific-scene cache backup preload. |
+| `NotificationSplashAdManager.kt` | Notification splash preload. |
+
+### Parameters
+
+Remote config:
+
+| Parameter | Default | Clamp | Meaning |
+| --- | --- | --- | --- |
+| `poseidon_background_low_memory_preload_guard_enabled` | `true` | Boolean | Enables/disables guard. |
+| `poseidon_background_preload_max_heap_usage_percent` | `80` | `50..95` | LOW heap usage threshold. |
+| `poseidon_background_preload_min_heap_headroom_mb` | `32` | `8..128` | LOW headroom threshold. |
+
+Internal thresholds:
+
+| Constant | Value | Meaning |
+| --- | --- | --- |
+| `CRITICAL_HEAP_USAGE_PERCENT` | `90` | Critical skip threshold in foreground or background. |
+| `CRITICAL_HEAP_HEADROOM_MB` | `16MiB` | Critical headroom threshold in foreground or background. |
+| `MIN_REPORTING_HEAP_HEADROOM_MB` | `16MiB` | Suppress analytics if reporting could worsen OOM. |
+| `SKIP_REPORT_INTERVAL_MILLIS` | `15 minutes` | Rate-limit `BACKGROUND_LOW_MEMORY_PRELOAD` analytics. |
+| `MEMORY_PRESSURE_NOTIFY_INTERVAL_MILLIS` | `5 minutes` | Rate-limit same-level host callbacks. |
+| `LOW_MEMORY_PRESSURE_RECOVERY_HEAP_USAGE_PERCENT` | `70` | Re-arm host callback after recovery. |
+| `LOW_MEMORY_PRESSURE_RECOVERY_HEAP_HEADROOM_MB` | `64MiB` | Re-arm host callback only when enough headroom returns. |
+
+Runtime fields:
+
+| Field | Source |
+| --- | --- |
+| `foreground` | `PoseidonSetupProcessor.isAppInForeground` |
+| `systemLowMemory` | `ActivityManager.MemoryInfo.lowMemory` |
+| `heapUsedBytes` | `Runtime.totalMemory() - Runtime.freeMemory()` |
+| `heapMaxBytes` | `Runtime.maxMemory()` |
+| `heapHeadroomBytes` | `heapMaxBytes - heapUsedBytes` |
+| `heapUsagePercent` | `heapUsedBytes * 100 / heapMaxBytes` |
+
+### Decision Flow
+
+```mermaid
+flowchart TD
+    A[Optional preload requested] --&gt; B[Read remote config]
+    B --&gt; C[Measure heap and system lowMemory]
+    C --&gt; D{Guard disabled or invalid heap?}
+    D -- Yes --&gt; E[Allow preload]
+    D -- No --&gt; F{Critical: heap &gt;= 90% or headroom &lt;= 16MiB?}
+    F -- Yes --&gt; G[Notify host CRITICAL]
+    G --&gt; H[Skip preload]
+    F -- No --&gt; I{Foreground?}
+    I -- Yes --&gt; J{LOW threshold crossed?}
+    J -- Yes --&gt; K[Notify host LOW]
+    K --&gt; E
+    J -- No --&gt; E
+    I -- No --&gt; L{System lowMemory?}
+    L -- Yes --&gt; G
+    L -- No --&gt; M{LOW threshold crossed?}
+    M -- Yes --&gt; N[Notify host LOW]
+    N --&gt; H
+    M -- No --&gt; E
+```
+
+Foreground behavior:
+
+- `LOW` notifies host but allows preload.
+- `CRITICAL` skips preload.
+
+Background behavior:
+
+- `LOW` skips preload.
+- `CRITICAL` skips preload.
+
+### Host Memory Pressure Callback
+
+```kotlin
+PoseidonAPI.setMemoryPressureListener { event -&gt;
+    when (event.level) {
+        PoseidonMemoryPressureLevel.LOW -&gt; {
+            // Clear cheap/rebuildable caches.
+        }
+        PoseidonMemoryPressureLevel.CRITICAL -&gt; {
+            // Release aggressive recreatable resources.
+        }
+    }
+}
+```
+
+Public event:
+
+```kotlin
+data class PoseidonMemoryPressureEvent(
+    val level: PoseidonMemoryPressureLevel,
+    val foreground: Boolean,
+    val systemLowMemory: Boolean,
+    val heapUsagePercent: Int,
+    val heapHeadroomBytes: Long,
+)
+```
+
+No scene, ad unit, mediation, or internal thresholds are exposed to the host.
+
+### Callback Suppression
+
+```mermaid
+stateDiagram-v2
+    [*] --&gt; NORMAL
+    NORMAL --&gt; LOW: LOW threshold crossed
+    NORMAL --&gt; CRITICAL: CRITICAL threshold crossed
+    LOW --&gt; CRITICAL: escalation fires immediately
+    LOW --&gt; LOW: same level suppressed for 5 minutes
+    CRITICAL --&gt; CRITICAL: same level suppressed for 5 minutes
+    LOW --&gt; NORMAL: heap &lt;= 70% and headroom &gt;= 64MiB
+    CRITICAL --&gt; NORMAL: heap &lt;= 70% and headroom &gt;= 64MiB
+```
+
+The host callback fires:
+
+- on first entry into `LOW`,
+- on first entry into `CRITICAL`,
+- immediately on `LOW -&gt; CRITICAL`,
+- again after 5 minutes if still at the same level,
+- again after recovery and re-entry.
+
+### Memory Pressure Device Reporter
+
+We added `PreloadMemoryPressureDeviceReporter` to measure how useful the guard is across real devices. We use this diagnostic event to identify which device classes reach dangerous Java heap pressure before optional preload decisions.
+
+Event name:
+
+```text
+preload_memory_pressure_device
+```
+
+Observed Firebase analyzer sample:
+
+```text
+logEvent: name=preload_memory_pressure_device, parameters={trigger_reason=high_heap_pressure, foreground=true, system_low_memory=false, guard_enabled=true, guard_max_heap_usage_percent=80, guard_min_heap_headroom_mb=32, report_min_heap_usage_percent=90, report_defer_heap_usage_percent=95, heap_usage_percent=90, heap_used_mb=462, heap_max_mb=512, heap_headroom_mb=49, runtime_max_heap_mb=512, system_total_ram_mb=3559, system_avail_ram_mb=852, system_low_memory_threshold_mb=127, app_large_heap=true, android_sdk_int=35, android_release=15, manufacturer=samsung, brand=samsung, model=SM-A156U1, device=a15x, product=a15xue, hardware=mt6835, supported_abis=arm64-v8a,armeabi-v7a,armeabi, screen_density=2.8125, screen_width_px=1080, screen_height_px=2340, poseidon_config_version=1.0.7}
+```
+
+What this sample proves:
+
+- The event fired at `heap_usage_percent=90`, which is inside the immediate reporting band.
+- The event did not wait for recovery because it was below the defer line: `report_defer_heap_usage_percent=95`.
+- The Java heap was close to the configured critical usage threshold: `heap_used_mb=462`, `heap_max_mb=512`, `heap_headroom_mb=49`.
+- The device context was captured without scene name, ad unit ID, mediation ID, callback object, Activity, or ad object.
+- The sample gives us enough context to group pressure by model (`SM-A156U1`), Android version (`15` / SDK `35`), physical RAM (`3559MiB`), app heap size (`512MiB`), ABI, and display bucket.
+
+Remote controls:
+
+| Parameter | Default | Clamp | Meaning |
+| --- | --- | --- | --- |
+| `poseidon_memory_pressure_device_report_enabled` | `true` | Boolean | Enables/disables this diagnostic reporter. |
+| `poseidon_memory_pressure_device_report_min_percent` | `90` | `80..95` | Lower bound for immediate one-session diagnostic reporting. |
+| `poseidon_memory_pressure_device_report_defer_percent` | `95` | `minPercent..99` | Above this value, we cache instead of reporting immediately. |
+| `poseidon_analyzer_enable_preload_memory_pressure_device` | `true` | Boolean | Existing reporter-level Firebase gate. |
+
+Operation:
+
+| Heap state | Behavior |
+| --- | --- |
+| `&lt; 90%` with no pending snapshot | We do not report. |
+| `90..95%` with enough reporting headroom | We report immediately once for the app process session. |
+| `90..95%` without reporting headroom | We cache the snapshot and wait for safer heap headroom. |
+| `&gt; 95%` | We do not report immediately. We cache the highest-pressure snapshot. |
+| Pending snapshot and heap becomes safe enough | We flush the cached snapshot once for the app process session. |
+| Already reported this session | We do not report again. |
+
+Why we defer above 95%:
+
+- Firebase reporting allocates objects.
+- At `&gt;95%` heap usage, even small allocations can push the process closer to OOM.
+- We keep only a lightweight in-memory snapshot and flush it later when heap headroom returns.
+
+Collected fields:
+
+| Group | Fields |
+| --- | --- |
+| Trigger | `trigger_reason`, `foreground`, `system_low_memory`, `guard_enabled` |
+| Guard config | `guard_max_heap_usage_percent`, `guard_min_heap_headroom_mb`, `report_min_heap_usage_percent`, `report_defer_heap_usage_percent` |
+| Java heap | `heap_usage_percent`, `heap_used_mb`, `heap_max_mb`, `heap_headroom_mb`, `runtime_max_heap_mb` |
+| System RAM | `system_total_ram_mb`, `system_avail_ram_mb`, `system_low_memory_threshold_mb` |
+| App heap config | `app_large_heap` |
+| Android build | `android_sdk_int`, `android_release`, `manufacturer`, `brand`, `model`, `device`, `product`, `hardware`, `supported_abis` |
+| Display bucket | `screen_density`, `screen_width_px`, `screen_height_px` |
+| Strategy context | `poseidon_config_version` from the shared reporter base |
+
+We intentionally do not include scene name, ad unit ID, mediation ID, or callback objects. This keeps the event about device pressure and avoids accidentally tying the diagnostic event to a retained ad object.
+
+What this lets us analyze:
+
+- which models hit 90%+ heap usage,
+- whether the issue clusters by Android version, manufacturer, ABI, or screen class,
+- whether app heap size is small relative to physical RAM,
+- whether `largeHeap` devices behave differently,
+- whether foreground pressure is more common than background pressure,
+- whether system low-memory state correlates with Java heap pressure.
+
+## Stress Test Evidence
+
+Detailed manual test cases are documented in `doc/preload-memory-guard-test-cases.md`.
+
+### Test Setup
+
+The stress test uses a debug-only heap pressure helper to retain large `ByteArray` blocks until target heap usage is reached. The target was pushed beyond normal warning levels into critical pressure.
+
+The key validation scenarios were:
+
+1. Heap below critical in foreground: preload allowed.
+2. Heap at `90%+` in foreground: preload skipped.
+3. Heap at `95%+`: repeated shared floor/ceil preload attempts skipped.
+4. Repeated critical callbacks suppressed by cooldown.
+5. Skip analytics suppressed by the 15-minute report interval.
+
+### Observed Critical Pressure
+
+Representative log:
+
+```text
+background preload memory guard input: enabled=true(raw=), foreground=true, systemLowMemory=false, maxHeapUsagePercent=80(raw=), minHeapHeadroomMb=32(raw=), heapUsed=497MiB, heapMax=512MiB, heapHeadroom=14MiB, heapUsagePercent=97%
+
+background preload memory guard thresholds: foreground=true, systemLowMemory=false, criticalUsageThreshold=460MiB, criticalHeadroomThreshold=16MiB, heapUsed=497MiB, heapMax=512MiB, heapHeadroom=14MiB, heapUsagePercent=97%
+
+skip background preload: critical heap pressure, used=497MiB, headroom=14MiB, criticalUsageThreshold=460MiB, criticalHeadroomThreshold=16MiB
+```
+
+Why this proves the guard works:
+
+- `heapUsed=497MiB` is above `criticalUsageThreshold=460MiB`.
+- `heapHeadroom=14MiB` is below `criticalHeadroomThreshold=16MiB`.
+- The app is foreground, but critical pressure still skips preload.
+- This directly prevents another optional ad preload allocation while only 14MiB of Java heap headroom remains.
+
+### Observed Callback Cooldown
+
+Representative log:
+
+```text
+suppress host memory pressure callback: level=CRITICAL, cooldown active
+```
+
+Why this is expected:
+
+- The first `CRITICAL` entry notifies the host.
+- Repeated shared pool attempts remain at `CRITICAL`.
+- Same-level host callback is suppressed for 5 minutes to avoid calling host cleanup repeatedly on every preload attempt.
+
+This is important because `SharedFloorAdPool` and `SharedCeilAdPool` can both attempt preload during the same pressure window.
+
+### Observed Skip Report Rate Limit
+
+Representative log:
+
+```text
+report background preload skip: scene=SharedFloorAdPool, hasLoadCallback=false, reportAnalytics=false
+drop background preload skip report: no callback and analytics is rate limited
+```
+
+Why this is expected:
+
+- The preload was skipped.
+- There was no ad load callback to notify.
+- Skip analytics had already been reported recently.
+- Repeated skip analytics is suppressed for 15 minutes.
+
+This prevents analytics itself from adding work and allocations while memory is critical.
+
+### Observed Shared Pool Protection
+
+The stress run repeatedly showed both shared pools protected:
+
+```text
+report background preload skip: scene=SharedFloorAdPool, hasLoadCallback=false, reportAnalytics=false
+report background preload skip: scene=SharedCeilAdPool, hasLoadCallback=false, reportAnalytics=false
+```
+
+This proves both shared preload paths reached the guard and were blocked during the same critical heap window.
+
+## Whether Our Changes Solve The Ember/Lumina Issues
+
+| Question | Answer |
+| --- | --- |
+| Same too-many-threads issue? | Yes. Poseidon-owned scheduler/thread overhead is reduced with one shared worker and reused main scope. Third-party SDK threads remain. |
+| Same memory/OOM issue? | Yes. `PreloadMemoryGuard` mitigates Poseidon optional preload under low memory. Leak owner is still unproven without HPROF. |
+| Same confirmed ad crash? | No. Confirmed Pangle/MAX, Google video, and TopOn Unity adapter crashes require route/version/device-specific handling. |
+| Does the guard solve Google/TopOn final allocation OOM? | We prevent Poseidon from starting optional preload when heap is unsafe; it does not prove or fix the retained-memory owner. |
+| Does the host get a trim signal? | Yes. `LOW` and `CRITICAL` are exposed through `PoseidonMemoryPressureListener`. |
+| Does it fire repeatedly? | No. Same-level callbacks are suppressed for 5 minutes and re-armed after recovery. Escalation from `LOW` to `CRITICAL` fires immediately. |
+
+## Verification
+
+Unit tests:
+
+```bash
+./gradlew :poseidon:testLuminaDebugUnitTest
+./gradlew :poseidon:testEmberDebugUnitTest
+```
+
+Manual stress verification:
+
+- Use the heap pressure helper from `doc/preload-memory-guard-test-cases.md`.
+- Allocate to `90%+` and trigger shared preload.
+- Verify `skip background preload: critical heap pressure`.
+- Allocate to `95%+` and repeat shared preload.
+- Verify `suppress host memory pressure callback: level=CRITICAL, cooldown active`.
+- Verify repeated analytics logs show `reportAnalytics=false`.
+
+LeakCanary verification:
+
+- Show a MAX interstitial, rotate or finish the host Activity, then wait for LeakCanary retained-object analysis.
+- Confirm there is no chain from `MaxInterstitialLoad$MaxInterstitialAd` through `fullScreenContentCallbackAtomic` to `PlatformInterstitialAdShowParameter.activity`.
+- Show a TopOn interstitial, finish the host Activity before or around ad close, then wait for LeakCanary retained-object analysis.
+- Confirm there is no chain from `TUInterstitial.mAdRevenueListener` through `TopOnInterstitialAd.fullScreenContentCallbackAtomic` to `PlatformInterstitialAdShowParameter.activity`.
+- Trigger consent flow from an Activity, finish that Activity while consent-info update is pending, then wait for LeakCanary retained-object analysis.
+- Confirm there is no SDK-owned chain from `ConsentInfoUpdateManager.TaskScheduler.listeners` to `PlatformConsentFormShowParameter.activity`.
+- Treat a short-lived `Google consent worker #1 -&gt; Activity` chain as external UMP in-flight work unless it remains after UMP callback completion and no Poseidon listener path appears.
+
+## Final Assessment
+
+Our Poseidon changes address the Ember/Lumina SDK-owned issues:
+
+- Poseidon scheduling/thread overhead is reduced.
+- Poseidon main-thread automation pressure is reduced.
+- Optional ad preload is blocked under critical heap pressure.
+- Host apps receive a minimal memory-pressure signal for cleanup.
+- Repeated callback and analytics spam are suppressed during sustained pressure.
+
+We do not claim to fix third-party adapter crashes, MediaCodec failures, native WebView crashes, Android rendering crashes, invalid foreground-service notifications, or storage-full device failures. Those remain separate product, adapter, or platform workstreams.
+</textarea>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    (function () {
+      var source = document.getElementById('markdown-source').value;
+      var content = document.getElementById('content');
+      var fallback = document.getElementById('fallback-source');
+      var fallbackNote = document.getElementById('fallback-note');
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      }
+
+      function showFallback() {
+        fallbackNote.style.display = 'block';
+        fallback.hidden = false;
+      }
+
+      try {
+        if (!window.marked) throw new Error('marked unavailable');
+        content.innerHTML = window.marked.parse(source);
+        var mermaidBlocks = content.querySelectorAll('pre > code.language-mermaid');
+        mermaidBlocks.forEach(function (code) {
+          var diagram = document.createElement('div');
+          diagram.className = 'mermaid';
+          diagram.textContent = code.textContent;
+          code.parentNode.replaceWith(diagram);
+        });
+        if (window.mermaid) {
+          window.mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', theme: 'default' });
+          Promise.resolve(window.mermaid.run({ nodes: document.querySelectorAll('.mermaid') })).catch(function () {
+            document.querySelectorAll('.mermaid').forEach(function (diagram) {
+              diagram.innerHTML = '<pre><code>' + escapeHtml(diagram.textContent) + '</code></pre>';
+            });
+          });
+        } else {
+          document.querySelectorAll('.mermaid').forEach(function (diagram) {
+            diagram.innerHTML = '<pre><code>' + escapeHtml(diagram.textContent) + '</code></pre>';
+          });
+        }
+      } catch (error) {
+        showFallback();
+      }
+    })();
+  </script>
+</body>
+</html>

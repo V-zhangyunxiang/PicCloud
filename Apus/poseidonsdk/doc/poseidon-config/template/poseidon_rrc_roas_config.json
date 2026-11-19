@@ -1,0 +1,34 @@
+{
+  "pos_rrc_e": "1",
+  "pos_rrc_ecpm_per": {
+    "pos_ecpm": "80",
+    "pos_adjust_token": "ddddd",
+    "pos_firebase_event": "ddddd"
+  },
+  "pos_rrc_ecpm_per2": [
+    {
+      "pos_ecpm": "180",
+      "pos_adjust_token": "cccc",
+      "pos_firebase_event": "cccc"
+    },
+    {
+      "pos_ecpm": "200",
+      "pos_adjust_token": "ddddd",
+      "pos_firebase_event": "ddddd"
+    }
+  ],
+  "pos_rrc_arpu_lim": [
+    {
+      "pos_arpu": "0.05",
+      "pos_time_cycle": "24",
+      "pos_adjust_token": "ddddd",
+      "pos_firebase_event": "ddddd"
+    },
+    {
+      "pos_arpu": "0.10",
+      "pos_time_cycle": "24",
+      "pos_adjust_token": "aaaaa",
+      "pos_firebase_event": "aaaaa"
+    }
+  ]
+}

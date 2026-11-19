@@ -1,0 +1,4 @@
+/build
+src/rust/cryptor/target
+src/rust/cryptor_cli/target
+src/rust/crc32_cli/target

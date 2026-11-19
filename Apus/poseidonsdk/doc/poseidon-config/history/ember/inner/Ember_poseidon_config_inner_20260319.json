@@ -1,0 +1,302 @@
+{
+  "pos_switch": 1,
+  "pos_version": "1.0.0",
+  "pos_strategy": [
+    {
+      "pos_id": "1",
+      "pos_placements": [
+        {
+          "pos_id": "n69bb9e8709818",
+          "pos_desc": "TopOn Reward Ads",
+          "pos_ad_type": 2,
+          "pos_mediation": 26
+        },
+        {
+          "pos_id": "7f18554126083e4a",
+          "pos_desc": "Max Reward Ads",
+          "pos_ad_type": 2,
+          "pos_mediation": 5
+        }
+      ],
+      "pos_desc": ""
+    },
+    {
+      "pos_id": "2",
+      "pos_placements": [
+        {
+          "pos_id": "n69bb9e866c6e0",
+          "pos_desc": "TopOn Inter Ads",
+          "pos_ad_type": 1,
+          "pos_mediation": 26
+        },
+        {
+          "pos_id": "f617fac600e76663",
+          "pos_desc": "Max Inter Ads",
+          "pos_ad_type": 1,
+          "pos_mediation": 5
+        }
+      ],
+      "pos_desc": ""
+    },
+    {
+      "pos_id": "3",
+      "pos_placements": [
+        {
+          "pos_id": "n69bb9e8754390",
+          "pos_desc": "TopOn Inter Ads",
+          "pos_ad_type": 1,
+          "pos_mediation": 26
+        },
+        {
+          "pos_id": "1f5f3fca4c27ea76",
+          "pos_desc": "Max Inter Ads",
+          "pos_ad_type": 1,
+          "pos_mediation": 5
+        }
+      ],
+      "pos_desc": ""
+    },
+    {
+      "pos_id": "4",
+      "pos_placements": [
+        {
+          "pos_id": "n69bb9e8852cb0",
+          "pos_desc": "TopOn Inter Ads",
+          "pos_ad_type": 1,
+          "pos_mediation": 26
+        },
+        {
+          "pos_id": "ae47c5620affdc20",
+          "pos_desc": "Max Inter Ads",
+          "pos_ad_type": 1,
+          "pos_mediation": 5
+        }
+      ],
+      "pos_desc": ""
+    },
+    {
+      "pos_id": "5",
+      "pos_placements": [
+        {
+          "pos_id": "n69bb9e87aa6ab",
+          "pos_desc": "TopOn Reward Ads",
+          "pos_ad_type": 2,
+          "pos_mediation": 26
+        },
+        {
+          "pos_id": "6275132ecda6d3fe",
+          "pos_desc": "Max Reward Ads",
+          "pos_ad_type": 2,
+          "pos_mediation": 5
+        }
+      ],
+      "pos_desc": ""
+    }
+  ],
+  "pos_scene": [
+    {
+      "pos_name": "EMA_Newuser_re",
+      "pos_strategy_id": 1,
+      "pos_switch": 1,
+      "pos_ad_type": 2,
+      "pos_enable_client_bidding": true,
+      "pos_allow_no_cache_request": false,
+      "pos_allow_no_cache_preload": false,
+      "pos_allow_preload_when_fullscreen_ad_dismissed": true,
+      "pos_allow_preload_when_native_ad_impressed": true,
+      "pos_allow_preload_when_ad_failed_to_show": true,
+      "pos_desc": ""
+    },
+    {
+      "pos_name": "EMA_Newuser_in",
+      "pos_strategy_id": 2,
+      "pos_switch": 1,
+      "pos_ad_type": 1,
+      "pos_enable_client_bidding": true,
+      "pos_allow_no_cache_request": false,
+      "pos_allow_no_cache_preload": false,
+      "pos_allow_preload_when_fullscreen_ad_dismissed": true,
+      "pos_allow_preload_when_native_ad_impressed": true,
+      "pos_allow_preload_when_ad_failed_to_show": true,
+      "pos_desc": ""
+    },
+    {
+      "pos_name": "EMA_splash_In",
+      "pos_strategy_id": 3,
+      "pos_switch": 1,
+      "pos_ad_type": 1,
+      "pos_enable_client_bidding": true,
+      "pos_allow_no_cache_request": false,
+      "pos_allow_no_cache_preload": false,
+      "pos_allow_preload_when_fullscreen_ad_dismissed": true,
+      "pos_allow_preload_when_native_ad_impressed": true,
+      "pos_allow_preload_when_ad_failed_to_show": true,
+      "pos_desc": ""
+    },
+    {
+      "pos_name": "EMA_verse_in",
+      "pos_strategy_id": 4,
+      "pos_switch": 1,
+      "pos_ad_type": 1,
+      "pos_enable_client_bidding": true,
+      "pos_allow_no_cache_request": false,
+      "pos_allow_no_cache_preload": false,
+      "pos_allow_preload_when_fullscreen_ad_dismissed": true,
+      "pos_allow_preload_when_native_ad_impressed": true,
+      "pos_allow_preload_when_ad_failed_to_show": true,
+      "pos_desc": ""
+    },
+    {
+      "pos_name": "EMA_verse_close_in",
+      "pos_strategy_id": 4,
+      "pos_switch": 1,
+      "pos_ad_type": 1,
+      "pos_enable_client_bidding": true,
+      "pos_allow_no_cache_request": false,
+      "pos_allow_no_cache_preload": false,
+      "pos_allow_preload_when_fullscreen_ad_dismissed": true,
+      "pos_allow_preload_when_native_ad_impressed": true,
+      "pos_allow_preload_when_ad_failed_to_show": true,
+      "pos_desc": ""
+    },
+    {
+      "pos_name": "EMA_Tips_re",
+      "pos_strategy_id": 5,
+      "pos_switch": 1,
+      "pos_ad_type": 2,
+      "pos_enable_client_bidding": true,
+      "pos_allow_no_cache_request": false,
+      "pos_allow_no_cache_preload": false,
+      "pos_allow_preload_when_fullscreen_ad_dismissed": true,
+      "pos_allow_preload_when_native_ad_impressed": true,
+      "pos_allow_preload_when_ad_failed_to_show": true,
+      "pos_desc": ""
+    },
+    {
+      "pos_name": "EMA_Revive_re",
+      "pos_strategy_id": 5,
+      "pos_switch": 1,
+      "pos_ad_type": 2,
+      "pos_enable_client_bidding": true,
+      "pos_allow_no_cache_request": false,
+      "pos_allow_no_cache_preload": false,
+      "pos_allow_preload_when_fullscreen_ad_dismissed": true,
+      "pos_allow_preload_when_native_ad_impressed": true,
+      "pos_allow_preload_when_ad_failed_to_show": true,
+      "pos_desc": ""
+    },
+    {
+      "pos_name": "EMA_continue_in",
+      "pos_strategy_id": 4,
+      "pos_switch": 1,
+      "pos_ad_type": 1,
+      "pos_enable_client_bidding": true,
+      "pos_allow_no_cache_request": false,
+      "pos_allow_no_cache_preload": false,
+      "pos_allow_preload_when_fullscreen_ad_dismissed": true,
+      "pos_allow_preload_when_native_ad_impressed": true,
+      "pos_allow_preload_when_ad_failed_to_show": true,
+      "pos_desc": ""
+    },
+    {
+      "pos_name": "EMA_level_try_again_in",
+      "pos_strategy_id": 4,
+      "pos_switch": 1,
+      "pos_ad_type": 1,
+      "pos_enable_client_bidding": true,
+      "pos_allow_no_cache_request": false,
+      "pos_allow_no_cache_preload": false,
+      "pos_allow_preload_when_fullscreen_ad_dismissed": true,
+      "pos_allow_preload_when_native_ad_impressed": true,
+      "pos_allow_preload_when_ad_failed_to_show": true,
+      "pos_desc": ""
+    }
+  ],
+  "pos_noti_splash_ad": {
+    "pos_show_ad_scene_name": "EMA_notify_splash_In",
+    "pos_preload_ad_when_noti_show_scene_name": "notify_inter_when_notification_displayed",
+    "pos_preload_ad_when_noti_click_scene_name": "notify_inter_when_notification_clicked",
+    "pos_enable_client_bidding": true,
+    "pos_switch": 1,
+    "pos_placement_id": "n69bb9e8754390",
+    "pos_mediation": 26,
+    "pos_fallback_strategy_id": 5,
+    "pos_allow_preload_when_fallback_ad_dismissed": true,
+    "pos_allow_preload_when_fallback_ad_failed_to_show": true
+  },
+  "pos_new_user_ad": [],
+  "pos_shared_floor": {
+    "pos_switch": 1,
+    "pos_cache_key": 1,
+    "pos_placements": [
+      {
+        "pos_id": "n69bb9e897f9d7",
+        "pos_mediation": 26,
+        "pos_ad_type": 1,
+        "pos_switch": 1
+      },
+      {
+        "pos_id": "e2385f6bcf50c90e",
+        "pos_mediation": 5,
+        "pos_ad_type": 1,
+        "pos_switch": 1
+      }
+    ]
+  },
+  "pos_shared_ceiling": {
+    "pos_switch": 1,
+    "pos_placements": [
+      {
+        "pos_id": "n69bb9e88d3c33",
+        "pos_mediation": 26,
+        "pos_ad_type": 1,
+        "pos_switch": 1
+      },
+      {
+        "pos_id": "n69bb9e892ffcf",
+        "pos_mediation": 26,
+        "pos_ad_type": 1,
+        "pos_switch": 1
+      }
+    ]
+  },
+  "pos_specific_scene_cache": {
+    "pos_switch": -1,
+    "pos_scene_names": [],
+    "pos_placements": []
+  },
+  "pos_automation": {
+    "pos_switch": -1,
+    "pos_ceiling": {
+      "pos_switch": -1,
+      "pos_topOn_placements": [],
+      "pos_admob_placements": []
+    },
+    "pos_floor": {
+      "pos_switch": -1,
+      "pos_topOn_placements": [],
+      "pos_admob_placements": []
+    }
+  },
+  "pos_mediations": {
+    "pos_topOn": {
+      "pos_id": 26,
+      "pos_app_id": "h69bb9dfb0a755",
+      "pos_app_key": "a19ae9d947436cd7566fead67e8fdbaf6",
+      "pos_enable_preset_strategy": false
+    },
+    "pos_admob": {
+      "pos_id": 2
+    },
+    "pos_max": {
+      "pos_id": 5,
+      "pos_applovin_sdk_key": "BR_GKVtc29uUI5eQD2HOR8Jcbnb2mEtMXM9i6GmZascTDGDAQba8B226L_yzdweFW_Zi8nhZQUh89zRlDg2N3P"
+    }
+  },
+  "pos_adjust_tokens": {
+    "pos_adjust_token_ad_impression": "9ydh1j",
+    "pos_adjust_token_fullscreen_impression": "xap4w1",
+    "pos_adjust_token_high_value_first_day": "nomdvl",
+    "pos_adjust_token_high_value_next_day": "5hzd72"
+  }
+}

@@ -1,0 +1,64 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+}
+
+def publishingGroup = project.findProperty('GROUP')?.toString()
+if (publishingGroup) {
+    group = publishingGroup
+}
+def publishingVersion = project.findProperty('VERSION_NAME')?.toString()
+if (publishingVersion) {
+    version = publishingVersion
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+dependencies {
+    implementation 'org.apache.commons:commons-lang3:3.12.0'
+    testImplementation 'org.json:json:20160810'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.7.1'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+
+    maxHeapSize = '1G'
+
+    testLogging {
+        events "passed"
+    }
+}
+
+publishing {
+    publications {
+        create('maven', MavenPublication) {
+            from components.java
+            groupId = publishingGroup ?: group
+            artifactId = project.findProperty('POM_ARTIFACT_ID')?.toString() ?: project.name
+            version = publishingVersion ?: version
+            pom {
+                name.set(project.findProperty('POM_NAME')?.toString() ?: artifactId)
+                description.set(project.findProperty('POM_DESCRIPTION')?.toString() ?: '')
+                packaging = project.findProperty('POM_PACKAGING')?.toString() ?: 'jar'
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            name = "xal"
+            def releaseRepositoryUrl = findProperty('RELEASE_REPOSITORY_URL')?.toString() ?: 'https://maven.apuscn.com/nexus/content/repositories/android-xal-releases/'
+            def snapshotRepositoryUrl = findProperty('SNAPSHOT_REPOSITORY_URL')?.toString() ?: 'https://maven.apuscn.com/nexus/content/repositories/android-xal-snapshots/'
+            url = (publishingVersion ?: version).toString().endsWith("SNAPSHOT") ? snapshotRepositoryUrl : releaseRepositoryUrl
+            credentials {
+                username = findProperty('MAVEN_USERNAME')?.toString() ?: ''
+                password = findProperty('MAVEN_PASSWORD')?.toString() ?: ''
+            }
+        }
+    }
+}

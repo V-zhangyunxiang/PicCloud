@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:shrinkMode="safe"
+    tools:keep="
+        @drawable/anythink_*,@layout/anythink_*,@string/anythink_*,@style/anythink_*,@color/anythink_*,@dimen/anythink_*,@id/anythink_*,
+        @drawable/tt_*,@layout/tt_*,@string/tt_*,@style/tt_*,@color/tt_*,@dimen/tt_*,@anim/tt_*,@attr/tt_*,@id/tt_*,R.raw.tt_*,R.mipmap.tt_*,R.menu.tt_*,R.integer.tt_*,
+        @drawable/mbridge*,@layout/mbridge*,@string/mbridge*,@style/mbridge*,@color/mbridge*,@anim/mbridge*,@id/mbridge*
+    " />

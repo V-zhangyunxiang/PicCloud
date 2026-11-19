@@ -1,0 +1,12 @@
+{
+  "pos_mode_default": "delay",
+  "pos_mode_serial": {
+    "pos_ad_unit_ids": []
+  },
+  "pos_mode_delay": {
+    "pos_time_in_millis": 1000,
+    "pos_ad_unit_ids": {
+      "ca-app-pub-3940256099942544/1033173712_": 3000
+    }
+  }
+}

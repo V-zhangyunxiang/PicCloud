@@ -1,0 +1,588 @@
+import com.android.build.api.attributes.BuildTypeAttr
+import com.android.build.gradle.api.LibraryVariant
+import com.android.build.gradle.tasks.BundleAar
+import org.gradle.api.DefaultTask
+import org.gradle.api.GradleException
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.publish.PublishingExtension
+import org.gradle.api.publish.maven.MavenPublication
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.Optional
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
+import java.util.LinkedHashSet
+import java.util.Locale
+import java.util.Properties
+
+plugins {
+    id("com.android.library")
+    alias(libs.plugins.jetbrains.kotlin.android)
+    id("org.jetbrains.kotlin.kapt")
+    alias(libs.plugins.kotlinx.atomicfu)
+    alias(libs.plugins.kotlin.serialization)
+    id "org.mozilla.rust-android-gradle.rust-android"
+    id "maven-publish"
+}
+
+static def sanitizeForBuildConfig(String raw) {
+    return raw?.replace("\\", "\\\\")?.replace("\"", "\\\"") ?: ""
+}
+
+static def parseCommaSeparatedList(String raw) {
+    return raw ? raw.split("[,;]").collect { it.trim() }.findAll { !it.isEmpty() } : []
+}
+
+static def capitalizeForGradle(String raw) {
+    if (!raw) {
+        return raw
+    }
+    def firstChar = raw.substring(0, 1).toUpperCase(Locale.ROOT)
+    return firstChar + raw.substring(1)
+}
+
+class ProductFlavorConfig {
+    final String flavorName
+    final String releaseAdConfig
+    final String releaseAdmobAppId
+    final String inlineReleaseAdConfig
+    final String maticooAppKey
+
+    ProductFlavorConfig(String flavorName, String releaseAdConfig, String releaseAdmobAppId, String inlineReleaseAdConfig, String maticooAppKey) {
+        this.flavorName = flavorName
+        this.releaseAdConfig = releaseAdConfig
+        this.releaseAdmobAppId = releaseAdmobAppId
+        this.inlineReleaseAdConfig = inlineReleaseAdConfig
+        this.maticooAppKey = maticooAppKey
+    }
+}
+
+def defaultProducts = ["lumina", "new"]
+def configuredProductsRaw = findProperty("POSEIDON_SDK_PRODUCTS")?.toString()
+def configuredProducts = configuredProductsRaw ?
+        configuredProductsRaw.split(",").collect { it.trim() }.findAll { !it.isEmpty() } :
+        defaultProducts
+def normalizedProducts = new LinkedHashSet(configuredProducts)
+def configuredBuildTypesRaw = findProperty("POSEIDON_SDK_BUILD_TYPES")?.toString() ?:
+        findProperty("POSEIDON_SDK_VARIANTS")?.toString()
+def buildTypesToInclude = parseCommaSeparatedList(configuredBuildTypesRaw).collect { it.toLowerCase(Locale.ROOT) }
+if (buildTypesToInclude.isEmpty()) {
+    buildTypesToInclude = ["debug", "qa", "release"]
+}
+def allowedBuildTypes = new LinkedHashSet(buildTypesToInclude)
+def releaseBuildTypeAttr = objects.named(BuildTypeAttr, "release")
+
+// 内置广告配置复制任务，用于将 product_env 中的 release_ad_config 嵌入到对应变体资源
+abstract class ReleaseAdConfigAssetTask extends DefaultTask {
+    @Optional
+    @InputFile
+    @PathSensitive(PathSensitivity.NONE)
+    abstract RegularFileProperty getSourceFile()
+
+    @Optional
+    @Input
+    abstract Property<String> getInlineContent()
+
+    @Input
+    abstract Property<String> getAssetFileName()
+
+    @OutputDirectory
+    abstract DirectoryProperty getOutputDir()
+
+    @TaskAction
+    void copyEmbeddedReleaseConfig() {
+        def output = outputDir.get().asFile
+        project.delete(output)
+        output.mkdirs()
+        def inlineValue = inlineContent.orNull
+        if (inlineValue != null) {
+            new File(output, assetFileName.get()).text = inlineValue
+        } else {
+            def source = sourceFile.get().asFile
+            if (!source.exists()) {
+                throw new GradleException("Missing release ad config file: ${source.absolutePath}")
+            }
+            project.copy { spec ->
+                spec.from(source)
+                spec.into(output)
+                spec.rename { assetFileName.get() }
+            }
+        }
+    }
+}
+
+ProductFlavorConfig loadProductConfig(String flavorName) {
+    def configDir = file("${rootProject.projectDir}/product_env")
+    def configFile = new File(configDir, "${flavorName}_config.properties")
+    if (!configFile.exists()) {
+        throw new GradleException("Missing configuration file for flavor '${flavorName}'. Please create ${configFile.name} under product_env.")
+    }
+    def props = new Properties()
+    configFile.withInputStream { props.load(it) }
+    def releaseAdConfigRaw = props.getProperty("release_ad_config")
+    def releaseAdmobAppId = props.getProperty("release_admob_app_id")
+    if (!releaseAdConfigRaw) {
+        throw new GradleException("Property 'release_ad_config' must be defined for flavor '${flavorName}'.")
+    }
+    if (!releaseAdmobAppId) {
+        throw new GradleException("Property 'release_admob_app_id' must be defined for flavor '${flavorName}'.")
+    }
+    def inlineReleaseAdConfig = null
+    def releaseAdConfigDir = new File(configDir, "release_ad_config")
+    def releaseAdConfigFile = new File(releaseAdConfigDir, releaseAdConfigRaw)
+    def releaseAdConfigAssetName = releaseAdConfigRaw
+    if (!releaseAdConfigFile.exists()) {
+        inlineReleaseAdConfig = releaseAdConfigRaw
+        releaseAdConfigAssetName = "${flavorName}_release_ad_config.bin"
+    }
+
+    def maticooAppKey = props.getProperty("maticoo_app_key") ?: ""
+
+    return new ProductFlavorConfig(flavorName, releaseAdConfigAssetName, releaseAdmobAppId, inlineReleaseAdConfig, maticooAppKey)
+}
+
+def productFlavorsConfig = normalizedProducts.collect { loadProductConfig(it) }
+def productDimensionName = "product"
+def testAdmobAppId = "ca-app-pub-3940256099942544~3347511713"
+def baseVersionName = project.findProperty("VERSION_NAME")?.toString() ?: (project.version?.toString() ?: "1.0.0")
+def bundleTasksForAggregation = new LinkedHashSet<String>()
+def bundleTaskSuffixes = [:]
+def productNamesSummary = productFlavorsConfig.collect { it.flavorName }.join(", ")
+def buildTypesSummary = allowedBuildTypes.join(", ")
+def artifactIdBase = project.findProperty("POM_ARTIFACT_ID")?.toString() ?: project.name
+def groupIdValue = project.findProperty("GROUP")?.toString() ?: (project.group?.toString() ?: "org.poseidon.ads")
+def pomDescription = project.findProperty("POM_DESCRIPTION")?.toString() ?: artifactIdBase
+def pomDisplayName = project.findProperty("POM_NAME")?.toString() ?: artifactIdBase
+
+group = groupIdValue
+version = baseVersionName
+
+
+
+android {
+    // aapt2 has a stupid change that prevents single-element package names.
+    // Please star https://issuetracker.google.com/issues/73450622 for updates.
+    namespace 'com.poseidon.ad'
+    compileSdk libs.versions.compileSdk.get().toInteger()
+    ndkVersion libs.versions.ndk.get()
+
+    defaultConfig {
+        minSdk libs.versions.minSdk.get().toInteger()
+
+        resourcePrefix 'flynk_multiplatform_'
+
+        buildConfigField "String", "POSEIDON_LIB_VERSION", "\"${sanitizeForBuildConfig(baseVersionName)}\""
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles "consumer-rules.pro"
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+            buildConfigField "boolean", "POSEIDON_DEBUG_SWITCH", "true"
+            buildConfigField "boolean", "POSEIDON_TOPON_STRATEGY_ENABLED", "false"
+            manifestPlaceholders["ADMOB_APP_ID"] = testAdmobAppId
+            manifestPlaceholders["MATICOO_APP_KEY"] = ""
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        release {
+            minifyEnabled true
+            buildConfigField "boolean", "POSEIDON_DEBUG_SWITCH", "false"
+            buildConfigField "boolean", "POSEIDON_TOPON_STRATEGY_ENABLED", "true"
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        create("qa") {
+            initWith(release)
+            matchingFallbacks += ["release"]
+            debuggable true
+            buildConfigField "boolean", "POSEIDON_DEBUG_SWITCH", "true"
+            buildConfigField "boolean", "POSEIDON_TOPON_STRATEGY_ENABLED", "true"
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    buildFeatures {
+        buildConfig true
+        viewBinding true
+    }
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+    packagingOptions {
+        // https://github.com/Kotlin/kotlinx.coroutines?tab=readme-ov-file#avoiding-including-the-debug-infrastructure-in-the-resulting-apk
+        resources.excludes += "DebugProbesKt.bin"
+    }
+
+    // Specifies one flavor dimension.
+    flavorDimensions = [productDimensionName]
+    productFlavors {
+        productFlavorsConfig.each { config ->
+            create(config.flavorName) {
+                dimension productDimensionName
+                manifestPlaceholders["ADMOB_APP_ID"] = config.releaseAdmobAppId
+                manifestPlaceholders["MATICOO_APP_KEY"] = config.maticooAppKey
+                buildConfigField "String", "POSEIDON_RELEASE_AD_CONFIG", "\"${sanitizeForBuildConfig(config.releaseAdConfig)}\""
+                buildConfigField "String", "POSEIDON_PRODUCT_NAME", "\"${sanitizeForBuildConfig(config.flavorName)}\""
+            }
+        }
+    }
+
+    publishing {
+        productFlavorsConfig.each { config ->
+            allowedBuildTypes.each { buildTypeName ->
+                def variantName = "${config.flavorName}${capitalizeForGradle(buildTypeName)}"
+                singleVariant(variantName) {
+                    withSourcesJar()
+                }
+            }
+        }
+    }
+
+    sourceSets {
+        main {
+            manifest.srcFile "src/androidMain/AndroidManifest.xml"
+            java.srcDirs += ["src/androidMain/kotlin"]
+            res.srcDirs += ["src/androidMain/res"]
+        }
+    }
+}
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        def productFlavorEntry = variant.productFlavors.find { it.first == productDimensionName }
+        if (productFlavorEntry == null) {
+            return
+        }
+        def flavorName = productFlavorEntry.second
+        def flavorConfig = productFlavorsConfig.find { it.flavorName == flavorName }
+        if (flavorConfig == null) {
+            return
+        }
+        def taskName = "prepare${variant.name.capitalize()}ReleaseAdConfig"
+        def taskProvider = tasks.register(taskName, ReleaseAdConfigAssetTask) { task ->
+            task.assetFileName.set(flavorConfig.releaseAdConfig)
+            if (flavorConfig.inlineReleaseAdConfig != null) {
+                task.inlineContent.set(flavorConfig.inlineReleaseAdConfig)
+            } else {
+                def releaseAdConfigFile = rootProject.layout.projectDirectory.file("product_env/release_ad_config/${flavorConfig.releaseAdConfig}")
+                task.sourceFile.set(releaseAdConfigFile)
+            }
+            task.outputDir.set(layout.buildDirectory.dir("generated/releaseAdConfig/${variant.name}"))
+        }
+        variant.sources.assets?.addGeneratedSourceDirectory(taskProvider) { task ->
+            task.outputDir
+        }
+    }
+
+    onVariants(selector().withBuildType("qa")) { variant ->
+        variant.compileConfiguration?.attributes?.attribute(BuildTypeAttr.ATTRIBUTE, releaseBuildTypeAttr)
+        variant.runtimeConfiguration?.attributes?.attribute(BuildTypeAttr.ATTRIBUTE, releaseBuildTypeAttr)
+    }
+}
+
+dependencies {
+    implementation(libs.napier)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.annotation.multiplatform)
+    implementation(libs.androidx.collection.multiplatform)
+    implementation(libs.jetbrains.kotlinx.coroutines.core)
+    implementation "org.jetbrains.kotlinx:kotlinx-datetime:0.4.1"
+    // Workaround for AtomicFU plugin not automatically adding JVM dependency for Android.
+    implementation(libs.kotlinx.atomicfu)
+    implementation(libs.jetbrains.kotlinx.coroutines.android)
+    implementation "com.google.guava:guava:33.3.1-android"
+
+    compileOnly "com.google.firebase:firebase-analytics:22.1.2"
+    compileOnly "com.google.firebase:firebase-config:22.0.1"
+    compileOnly "com.adjust.sdk:adjust-android:5.3.0"
+
+    implementation "androidx.room:room-runtime:2.8.4"
+    implementation "androidx.room:room-ktx:2.8.4"
+    kapt "androidx.room:room-compiler:2.8.4"
+
+    implementation "androidx.activity:activity:1.9.1"
+    implementation(libs.androidx.webkit)
+
+    implementation "com.google.android.ump:user-messaging-platform:4.0.0"
+
+    // >>>>>>>>>>>>>>>>>>>>>>>>>TopOn<<<<<<<<<<<<<<<<<<<<<<<<<<
+    api "com.thinkup.sdk:core-tpn:6.6.42"
+
+    api "androidx.appcompat:appcompat:1.6.1"
+    api "androidx.browser:browser:1.4.0"
+
+    api "com.thinkup.sdk:adapter-tpn-vungle:7.7.9.1.0"
+    api "com.vungle:vungle-ads:7.7.9"
+    api "com.google.android.gms:play-services-basement:18.9.0"
+    api "com.google.android.gms:play-services-ads-identifier:18.0.1"
+
+    api "com.thinkup.sdk:adapter-tpn-unityads:4.21.0.1.0"
+    api("com.unity3d.ads:unity-ads:4.21.0") {
+        exclude group: "com.unity3d.ads-mediation", module: "adquality-sdk"
+    }
+    api "com.unity3d.ads-mediation:adquality-sdk:9.8.0"
+
+    api "com.thinkup.sdk:adapter-tpn-bigo:6.1.0.1.0"
+    api "com.bigossp:bigo-ads:6.1.0"
+
+    api "com.thinkup.sdk:adapter-tpn-facebook:6.22.0.1.0"
+    api "com.facebook.android:audience-network-sdk:6.22.0"
+    api "androidx.annotation:annotation:1.5.0"
+
+    api "com.thinkup.sdk:adapter-tpn-admob:25.5.0.1.0"
+    api "com.google.android.gms:play-services-ads:25.5.0"
+
+    api "com.thinkup.sdk:adapter-tpn-applovin:13.6.4.1.0"
+    api "com.applovin:applovin-sdk:13.6.4"
+
+    //Pangle
+    api "com.thinkup.sdk:adapter-tpn-pangle:8.3.0.4.1.0"
+    api "com.pangle.global:pag-sdk:8.3.0.4"
+
+    //Fyber
+    api "com.thinkup.sdk:adapter-tpn-fyber:8.4.7.1.0"
+    api "com.fyber:marketplace-sdk:8.4.7"
+
+    //TU Adx SDK
+    api "com.thinkup.sdk:adapter-tpn-agt:6.5.85.1.0"
+    api "com.aggregatortech.sdk:agt-ovsdk:6.5.85"
+
+    //bidmachine
+    api("io.bidmachine:ads:3.8.0")
+    api("com.thinkup.sdk:adapter-tpn-bidmachine:3.7.1.1.0")
+
+    api "com.thinkup.sdk:tramini-plugin-tpn:6.6.42"
+    // >>>>>>>>>>>>>>>>>>>>>>>>>TopOn<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+    // >>>>>>>>>>>>>>>>>>>>>>>>>Admob mediation<<<<<<<<<<<<<<<<<<<<<<<<<<
+    implementation "com.google.android.gms:play-services-ads:25.5.0"
+
+    implementation('com.google.ads.mediation:vungle:7.7.8.1')
+//    {
+//        exclude group: "com.google.android.gms", module: "play-services-ads"
+//    }
+
+    implementation 'com.google.ads.mediation:unity:4.21.0.0'
+    implementation("com.unity3d.ads:unity-ads:4.21.0") {
+        exclude group: "com.unity3d.ads-mediation", module: "adquality-sdk"
+    }
+
+//    implementation "com.bigossp:admob-mediation:5.7.1.0"
+    implementation("com.google.ads.mediation:bigo:6.1.0.0")
+
+    implementation("com.google.ads.mediation:fyber:8.4.7.1")
+    implementation("com.google.ads.mediation:pangle:8.3.0.4.0")
+    implementation("com.google.ads.mediation:bidmachine:3.8.0.1")
+
+    implementation('com.google.ads.mediation:facebook:6.22.0.1') {
+        exclude group: "com.google.android.gms", module: "play-services-ads"
+    }
+
+    implementation('com.google.ads.mediation:applovin:13.6.4.2') {
+        exclude group: "com.applovin", module: "applovin-sdk"
+        exclude group: "com.google.android.gms", module: "play-services-ads"
+    }
+    // >>>>>>>>>>>>>>>>>>>>>>>>>Admob mediation<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+    // >>>>>>>>>>>>>>>>>>>>>>>>>Max mediation<<<<<<<<<<<<<<<<<<<<<<<<<<
+    implementation 'com.applovin:applovin-sdk:13.6.4'
+    implementation 'com.applovin.mediation:google-adapter:25.5.0.0'
+    implementation 'com.applovin.mediation:google-ad-manager-adapter:25.5.0.0'
+    implementation 'com.applovin.mediation:vungle-adapter:7.7.9.0'
+    implementation('com.applovin.mediation:unityads-adapter:4.21.0.0') {
+        exclude group: "com.unity3d.ads-mediation", module: "adquality-sdk"
+    }
+    implementation("com.applovin.mediation:bigoads-adapter:6.1.0.0")
+
+    implementation 'com.applovin.mediation:facebook-adapter:6.22.0.1'
+    implementation 'com.squareup.picasso:picasso:2.8'
+    implementation 'androidx.recyclerview:recyclerview:1.1.0'
+
+    // Pangle Max adapter
+    implementation 'com.applovin.mediation:bytedance-adapter:8.3.0.4.1'
+
+
+
+    // Fyber Max adapter
+    implementation 'com.applovin.mediation:fyber-adapter:8.4.7.0'
+
+    api("com.applovin.mediation:bidmachine-adapter:3.8.0.0")
+    // >>>>>>>>>>>>>>>>>>>>>>>>>Max mediation<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+    debugImplementation(libs.junit)
+}
+
+kapt {
+    arguments {
+        arg("room.schemaLocation", "$projectDir/schemas")
+        arg("room.incremental", "true")
+    }
+}
+
+def androidComponentsExt = project.extensions.findByName("androidComponents")
+if (androidComponentsExt != null) {
+    androidComponentsExt.onVariants(androidComponentsExt.selector().all()) { variant ->
+        def buildType = variant.buildType
+        if (!buildType) {
+            return
+        }
+        def normalizedBuildType = buildType.toLowerCase(Locale.ROOT)
+        if (!allowedBuildTypes.contains(normalizedBuildType)) {
+            return
+        }
+        def productFlavorEntry = variant.productFlavors.find { it.first == productDimensionName }
+        def productFlavor = productFlavorEntry ? productFlavorEntry.second : null
+        if (!productFlavor) {
+            return
+        }
+        def variantSuffix = "${productFlavor}-${normalizedBuildType}"
+        def bundleTaskName = "bundle${capitalizeForGradle(variant.name)}Aar"
+        bundleTasksForAggregation << bundleTaskName
+        bundleTaskSuffixes[bundleTaskName] = variantSuffix
+    }
+}
+
+tasks.withType(BundleAar).configureEach {
+    def suffix = bundleTaskSuffixes[name]
+    if (suffix) {
+        archiveFileName.set("${baseVersionName}-${suffix}.aar")
+    }
+}
+android.libraryVariants.configureEach { LibraryVariant variant ->
+    tasks.named("merge${variant.name.capitalize()}JniLibFolders").get().dependsOn 'cargoBuild'
+}
+
+cargo {
+    def home = System.getProperty("user.home")
+    module  = "src/rust/cryptor"       // Or whatever directory contains your Cargo.toml
+    libname = "PoseidonCypt"          // Or whatever matches Cargo.toml's [package] name.
+    targets = ["arm", "arm64", "x86_64", "x86"]  // See bellow for a longer list of options
+    profile = "release"
+    rustcCommand = "$home/.cargo/bin/rustc"
+    cargoCommand = "$home/.cargo/bin/cargo"
+    pythonCommand = System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("windows") ? "python" : "/usr/bin/python3"
+    exec { spec, toolchain ->
+        def modulePath = project.file(cargo.module)
+        // https://doc.rust-lang.org/cargo/reference/config.html#buildrustflags
+        spec.environment("CARGO_BUILD_RUSTFLAGS", "--remap-path-prefix=$home=/Lotus --remap-path-prefix=${modulePath}=/Sequoia")
+        // Support 16KB page sizes
+        // https://developer.android.com/guide/practices/page-sizes#other-build-systems
+        spec.environment("RUST_ANDROID_GRADLE_CC_LINK_ARG", "-Wl,-z,max-page-size=16384,-soname,lib${libname}.so")
+    }
+}
+
+tasks.named("clean", Delete) {
+    delete(project.layout.buildDirectory)
+    delete(project.file(cargo.module + "/target"))
+}
+
+afterEvaluate {
+    extensions.configure(PublishingExtension) { publishing ->
+        def repositoryName = "xal"
+        if (publishing.repositories.findByName(repositoryName) == null) {
+            def releaseRepositoryUrl = findProperty('RELEASE_REPOSITORY_URL')?.toString() ?: 'https://maven.apuscn.com/nexus/content/repositories/android-xal-releases/'
+            def snapshotRepositoryUrl = findProperty('SNAPSHOT_REPOSITORY_URL')?.toString() ?: 'https://maven.apuscn.com/nexus/content/repositories/android-xal-snapshots/'
+            publishing.repositories.maven {
+                name = repositoryName
+                url = project.version.toString().endsWith("SNAPSHOT") ? snapshotRepositoryUrl : releaseRepositoryUrl
+                credentials {
+                    username = findProperty('MAVEN_USERNAME')?.toString() ?: ''
+                    password = findProperty('MAVEN_PASSWORD')?.toString() ?: ''
+                }
+            }
+        }
+
+        ["release", "maven"].each { name ->
+            def publication = publishing.publications.findByName(name)
+            if (publication) {
+                publishing.publications.remove(publication)
+            }
+        }
+
+        def publicationNames = []
+        def qaPublicationNames = []
+        productFlavorsConfig.each { config ->
+            allowedBuildTypes.each { buildTypeName ->
+                def componentName = "${config.flavorName}${capitalizeForGradle(buildTypeName)}"
+                def component = project.components.findByName(componentName)
+                if (!component) {
+                    return
+                }
+                def normalizedBuildType = buildTypeName.toLowerCase(Locale.ROOT)
+                def publicationName = "poseidon${capitalizeForGradle(config.flavorName)}${capitalizeForGradle(buildTypeName)}"
+                if (!publishing.publications.findByName(publicationName)) {
+                    publishing.publications.create(publicationName, MavenPublication) {
+                        from(component)
+                        groupId = groupIdValue
+                        artifactId = artifactIdBase
+                        version = "${baseVersionName}-${config.flavorName}-${normalizedBuildType}"
+                        pom {
+                            name.set("${pomDisplayName}-${config.flavorName}-${normalizedBuildType}")
+                            description.set(pomDescription)
+                        }
+                    }
+                }
+                publicationNames << publicationName
+                if (normalizedBuildType == "qa") {
+                    qaPublicationNames << publicationName
+                }
+            }
+        }
+
+        def repositorySuffix = "ToXalRepository"
+        def publishDependencyTasks = publicationNames.collect { pubName ->
+            def capitalized = capitalizeForGradle(pubName)
+            "publish${capitalized}Publication${repositorySuffix}"
+        }
+
+        tasks.matching { task ->
+            task.name.startsWith("publishReleasePublication") || task.name.startsWith("publishMavenPublication")
+        }.configureEach {
+            enabled = false
+        }
+
+        if (!publishDependencyTasks.isEmpty()) {
+            tasks.named("publish") {
+                dependsOn(publishDependencyTasks)
+            }
+
+            tasks.register("publishAllVariants") {
+                group = "publishing"
+                description = "Publishes poseidon ${productNamesSummary} (${buildTypesSummary}) variants to Xal repository"
+                dependsOn(publishDependencyTasks)
+            }
+        }
+
+        qaPublicationNames.each { qaPublicationName ->
+            def metadataTaskName = "generateMetadataFileFor${capitalizeForGradle(qaPublicationName)}Publication"
+            tasks.named(metadataTaskName) { task ->
+                doLast {
+                    def metadataFile = task.outputFile.get().asFile
+                    if (metadataFile.exists()) {
+                        def originalContent = metadataFile.getText("UTF-8")
+                        def updatedContent = originalContent.replace('"com.android.build.api.attributes.BuildTypeAttr": "qa"', '"com.android.build.api.attributes.BuildTypeAttr": "release"')
+                        if (updatedContent != originalContent) {
+                            metadataFile.setText(updatedContent, "UTF-8")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (!bundleTasksForAggregation.isEmpty()) {
+        tasks.register("assembleAllProducts") {
+            group = "build"
+            description = "Bundles poseidon SDK for ${productNamesSummary} (${buildTypesSummary})"
+            dependsOn(bundleTasksForAggregation.toList().sort())
+        }
+    }
+}

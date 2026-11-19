@@ -1,0 +1,10 @@
+[package]
+name = "cryptor_cli"
+version = "0.1.0"
+authors = ["Lenox <xianxueliang@apusapps.com>"]
+edition = "2021"
+
+
+[dependencies]
+structopt = "0.3"
+cryptor = { path = "../cryptor" }

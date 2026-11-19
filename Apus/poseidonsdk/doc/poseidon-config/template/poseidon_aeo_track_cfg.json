@@ -1,0 +1,18 @@
+[
+  {
+    "pos_price": 0.04,
+    "pos_time": 1,
+    "pos_hour": 12,
+    "pos_eventToken": "q2vcg0",
+    "pos_firebaseEvent": "Aeo1",
+    "pos_adTypes": "n,r,i,s,b"
+  },
+  {
+    "pos_price": 0.12,
+    "pos_time": 2,
+    "pos_hour": 12,
+    "pos_eventToken": "qajxic",
+    "pos_firebaseEvent": "Aeo2",
+    "pos_adTypes": "n,r,i,s,b"
+  }
+]

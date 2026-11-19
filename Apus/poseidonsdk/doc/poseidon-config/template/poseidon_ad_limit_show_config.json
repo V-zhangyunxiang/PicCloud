@@ -1,0 +1,25 @@
+{
+  "pos_auto_clean_switch": 1,
+  "pos_n": {
+    "pos_switch": 1,
+    "pos_scenes": [
+      "back_interstitial_scene",
+      "Add_data",
+      "med_in"
+    ],
+    "pos_tsf": false,
+    "pos_tif": 3,
+    "pos_til": 3
+  },
+  "pos_non_n": {
+    "pos_switch": 1,
+    "pos_scenes": [
+      "Info",
+      "Add_data",
+      "med_in"
+    ],
+    "pos_tsf": true,
+    "pos_tif": 0,
+    "pos_til": 0
+  }
+}

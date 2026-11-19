@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+
+    <application>
+        <uses-library android:name="org.apache.http.legacy" android:required="false"/>
+        <!-- AdMob App Id 通过变体注入 -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="${ADMOB_APP_ID}" />
+        <meta-data
+            android:name="com.google.android.gms.ads.AD_MANAGER_APP"
+            android:value="true" />
+
+<!--        https://developers.google.com/admob/android/optimize-initialization-->
+        <meta-data
+            android:name="com.google.android.gms.ads.flag.OPTIMIZE_INITIALIZATION"
+            android:value="true"/>
+        <meta-data
+            android:name="com.google.android.gms.ads.flag.OPTIMIZE_AD_LOADING"
+            android:value="true"/>
+
+        <!-- zMaticoo App Key 通过变体注入 -->
+        <meta-data
+            android:name="maticoo_app_key"
+            android:value="${MATICOO_APP_KEY}" />
+        <meta-data
+            android:name="com.google.android.gms.ads.flag.CHROME_CUSTOM_TAB_OPT_OUT"
+            android:value="true"/>
+
+        <activity
+            android:name=".main.show.mixed.NativeMixInterstitialAdActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="stateAlwaysHidden"
+            android:theme="@style/Theme_NativeMixFullscreenAdActivity"
+            android:taskAffinity="org.poseidon" />
+
+        <activity
+            android:name=".main.show.mixed.NativeMixOpenAdActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="stateAlwaysHidden"
+            android:theme="@style/Theme_NativeMixFullscreenAdActivity"
+            android:taskAffinity="org.poseidon" />
+
+        <activity
+            android:name=".main.show.mixed.NativeMixRewardedAdActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="stateAlwaysHidden"
+            android:theme="@style/Theme_NativeMixFullscreenAdActivity"
+            android:taskAffinity="org.poseidon" />
+
+        <activity
+            android:name=".mediation.topon.show.TopOnOpenActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="stateAlwaysHidden"
+            android:theme="@style/Theme_NativeMixFullscreenAdActivity"
+            android:taskAffinity="org.poseidon" />
+    </application>
+</manifest>

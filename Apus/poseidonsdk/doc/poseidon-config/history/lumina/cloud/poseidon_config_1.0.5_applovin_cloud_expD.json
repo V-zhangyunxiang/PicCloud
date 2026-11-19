@@ -1,0 +1,351 @@
+{
+  "pos_switch": 1,
+  "pos_version": "1.0.5",
+  "pos_strategy": [
+    {
+      "pos_id": "1",
+      "pos_placements": [
+        {
+          "pos_id": "ca-app-pub-5770749880765802/5609219437",
+          "pos_desc": "Admob Reward Ads",
+          "pos_ad_type": 2,
+          "pos_mediation": 2
+        },
+        {
+          "pos_id": "n696f8221bb24a",
+          "pos_desc": "TopOn Reward Ads",
+          "pos_ad_type": 2,
+          "pos_mediation": 26
+        }
+      ],
+      "pos_desc": ""
+    },
+    {
+      "pos_id": "2",
+      "pos_placements": [
+        {
+          "pos_id": "ca-app-pub-5770749880765802/5563886358",
+          "pos_desc": "Admob Inter Ads",
+          "pos_ad_type": 1,
+          "pos_mediation": 2
+        },
+        {
+          "pos_id": "n696f822149281",
+          "pos_desc": "TopOn Inter Ads",
+          "pos_ad_type": 1,
+          "pos_mediation": 26
+        }
+      ],
+      "pos_desc": ""
+    },
+    {
+      "pos_id": "3",
+      "pos_placements": [
+        {
+          "pos_id": "ca-app-pub-5770749880765802/8658755304",
+          "pos_desc": "Admob Inter Ads",
+          "pos_ad_type": 1,
+          "pos_mediation": 2
+        },
+        {
+          "pos_id": "n696f822210d3e",
+          "pos_desc": "TopOn Inter Ads",
+          "pos_ad_type": 1,
+          "pos_mediation": 26
+        }
+      ],
+      "pos_desc": ""
+    },
+    {
+      "pos_id": "4",
+      "pos_placements": [
+        {
+          "pos_id": "ca-app-pub-5770749880765802/6032591969",
+          "pos_desc": "Admob Inter Ads",
+          "pos_ad_type": 1,
+          "pos_mediation": 2
+        },
+        {
+          "pos_id": "n696f8222f115e",
+          "pos_desc": "TopOn Inter Ads",
+          "pos_ad_type": 1,
+          "pos_mediation": 26
+        }
+      ],
+      "pos_desc": ""
+    },
+    {
+      "pos_id": "5",
+      "pos_placements": [
+        {
+          "pos_id": "ca-app-pub-5770749880765802/2296660387",
+          "pos_desc": "Admob Rewarded Ads",
+          "pos_ad_type": 2,
+          "pos_mediation": 2
+        },
+        {
+          "pos_id": "n696f8222689ff",
+          "pos_desc": "TopOn Reward Ads",
+          "pos_ad_type": 2,
+          "pos_mediation": 26
+        }
+      ],
+      "pos_desc": ""
+    }
+  ],
+  "pos_scene": [
+    {
+      "pos_name": "LMA_Newuser_reward",
+      "pos_strategy_id": 1,
+      "pos_switch": 1,
+      "pos_ad_type": 2,
+      "pos_enable_client_bidding": true,
+      "pos_allow_no_cache_request": false,
+      "pos_allow_no_cache_preload": false,
+      "pos_allow_preload_when_fullscreen_ad_dismissed": true,
+      "pos_allow_preload_when_native_ad_impressed": true,
+      "pos_allow_preload_when_ad_failed_to_show": true,
+      "pos_desc": ""
+    },
+    {
+      "pos_name": "LMA_Newuser_inter",
+      "pos_strategy_id": 2,
+      "pos_switch": 1,
+      "pos_ad_type": 1,
+      "pos_enable_client_bidding": true,
+      "pos_allow_no_cache_request": false,
+      "pos_allow_no_cache_preload": false,
+      "pos_allow_preload_when_fullscreen_ad_dismissed": true,
+      "pos_allow_preload_when_native_ad_impressed": true,
+      "pos_allow_preload_when_ad_failed_to_show": true,
+      "pos_desc": ""
+    },
+    {
+      "pos_name": "LMA_splash_Inter",
+      "pos_strategy_id": 3,
+      "pos_switch": 1,
+      "pos_ad_type": 1,
+      "pos_enable_client_bidding": true,
+      "pos_allow_no_cache_request": false,
+      "pos_allow_no_cache_preload": false,
+      "pos_allow_preload_when_fullscreen_ad_dismissed": true,
+      "pos_allow_preload_when_native_ad_impressed": true,
+      "pos_allow_preload_when_ad_failed_to_show": true,
+      "pos_desc": ""
+    },
+    {
+      "pos_name": "LMA_verse_inter",
+      "pos_strategy_id": 4,
+      "pos_switch": 1,
+      "pos_ad_type": 1,
+      "pos_enable_client_bidding": true,
+      "pos_allow_no_cache_request": false,
+      "pos_allow_no_cache_preload": false,
+      "pos_allow_preload_when_fullscreen_ad_dismissed": true,
+      "pos_allow_preload_when_native_ad_impressed": true,
+      "pos_allow_preload_when_ad_failed_to_show": true,
+      "pos_desc": ""
+    },
+    {
+      "pos_name": "LMA_verse_close_Inter",
+      "pos_strategy_id": 4,
+      "pos_switch": 1,
+      "pos_ad_type": 1,
+      "pos_enable_client_bidding": true,
+      "pos_allow_no_cache_request": false,
+      "pos_allow_no_cache_preload": false,
+      "pos_allow_preload_when_fullscreen_ad_dismissed": true,
+      "pos_allow_preload_when_native_ad_impressed": true,
+      "pos_allow_preload_when_ad_failed_to_show": true,
+      "pos_desc": ""
+    },
+    {
+      "pos_name": "LMA_Tips_RW",
+      "pos_strategy_id": 5,
+      "pos_switch": 1,
+      "pos_ad_type": 2,
+      "pos_enable_client_bidding": true,
+      "pos_allow_no_cache_request": false,
+      "pos_allow_no_cache_preload": false,
+      "pos_allow_preload_when_fullscreen_ad_dismissed": true,
+      "pos_allow_preload_when_native_ad_impressed": true,
+      "pos_allow_preload_when_ad_failed_to_show": true,
+      "pos_desc": ""
+    },
+    {
+      "pos_name": "LMA_Revive_RW",
+      "pos_strategy_id": 5,
+      "pos_switch": 1,
+      "pos_ad_type": 2,
+      "pos_enable_client_bidding": true,
+      "pos_allow_no_cache_request": false,
+      "pos_allow_no_cache_preload": false,
+      "pos_allow_preload_when_fullscreen_ad_dismissed": true,
+      "pos_allow_preload_when_native_ad_impressed": true,
+      "pos_allow_preload_when_ad_failed_to_show": true,
+      "pos_desc": ""
+    },
+    {
+      "pos_name": "LMA_continue_inter",
+      "pos_strategy_id": 4,
+      "pos_switch": 1,
+      "pos_ad_type": 1,
+      "pos_enable_client_bidding": true,
+      "pos_allow_no_cache_request": false,
+      "pos_allow_no_cache_preload": false,
+      "pos_allow_preload_when_fullscreen_ad_dismissed": true,
+      "pos_allow_preload_when_native_ad_impressed": true,
+      "pos_allow_preload_when_ad_failed_to_show": true,
+      "pos_desc": ""
+    },
+    {
+      "pos_name": "LMA_level_try_again_inter",
+      "pos_strategy_id": 4,
+      "pos_switch": 1,
+      "pos_ad_type": 1,
+      "pos_enable_client_bidding": true,
+      "pos_allow_no_cache_request": false,
+      "pos_allow_no_cache_preload": false,
+      "pos_allow_preload_when_fullscreen_ad_dismissed": true,
+      "pos_allow_preload_when_native_ad_impressed": true,
+      "pos_allow_preload_when_ad_failed_to_show": true,
+      "pos_desc": ""
+    },
+    {
+      "pos_name": "SkB_webbrows_return_inter",
+      "pos_strategy_id": 4,
+      "pos_switch": 1,
+      "pos_ad_type": 1,
+      "pos_enable_client_bidding": true,
+      "pos_allow_no_cache_request": false,
+      "pos_allow_no_cache_preload": false,
+      "pos_allow_preload_when_fullscreen_ad_dismissed": true,
+      "pos_allow_preload_when_native_ad_impressed": true,
+      "pos_allow_preload_when_ad_failed_to_show": true,
+      "pos_desc": "Web Return Inters"
+    }
+  ],
+  "pos_noti_splash_ad": {
+    "pos_show_ad_scene_name": "LMA_notify_splash_Inter",
+    "pos_preload_ad_when_noti_show_scene_name": "notify_inter_when_notification_displayed",
+    "pos_preload_ad_when_noti_click_scene_name": "notify_inter_when_notification_clicked",
+    "pos_enable_client_bidding": true,
+    "pos_switch": 1,
+    "pos_placement_id": "ca-app-pub-5770749880765802/7806906316",
+    "pos_mediation": 2,
+    "pos_fallback_strategy_id": 5,
+    "pos_allow_preload_when_fallback_ad_dismissed": true,
+    "pos_allow_preload_when_fallback_ad_failed_to_show": true
+  },
+  "pos_new_user_ad": [],
+  "pos_shared_floor": {
+    "pos_switch": 1,
+    "pos_cache_key": 1,
+    "pos_placements": [
+      {
+        "pos_id": "ca-app-pub-5770749880765802/7253473599",
+        "pos_mediation": 2,
+        "pos_ad_type": 1,
+        "pos_switch": 1
+      },
+      {
+        "pos_id": "n696f8223ccd9d",
+        "pos_mediation": 26,
+        "pos_ad_type": 1,
+        "pos_switch": 1
+      },
+      {
+        "pos_id": "b9f57495dd651abf",
+        "pos_mediation": 5,
+        "pos_ad_type": 1,
+        "pos_switch": 1
+      }
+    ]
+  },
+  "pos_shared_ceiling": {
+    "pos_switch": 1,
+    "pos_placements": [
+      {
+        "pos_id": "ca-app-pub-5770749880765802/4498216699",
+        "pos_mediation": 2,
+        "pos_ad_type": 2,
+        "pos_switch": 1,
+        "pos_desc": "R HIGH"
+      },
+      {
+        "pos_id": "ca-app-pub-5770749880765802/2504410490",
+        "pos_mediation": 2,
+        "pos_ad_type": 1,
+        "pos_switch": 1,
+        "pos_desc": "I HIGH"
+      },
+      {
+        "pos_id": "ca-app-pub-5770749880765802/4424134819",
+        "pos_mediation": 2,
+        "pos_ad_type": 2,
+        "pos_switch": 1,
+        "pos_desc": "R MID"
+      },
+      {
+        "pos_id": "ca-app-pub-5770749880765802/1669974428",
+        "pos_mediation": 2,
+        "pos_ad_type": 1,
+        "pos_switch": 1,
+        "pos_desc": "I MID"
+      },
+      {
+        "pos_id": "ca-app-pub-5770749880765802/2469204094",
+        "pos_mediation": 2,
+        "pos_ad_type": 2,
+        "pos_switch": 1,
+        "pos_desc": "R LOW"
+      },
+      {
+        "pos_id": "ca-app-pub-5770749880765802/8843040755",
+        "pos_mediation": 2,
+        "pos_ad_type": 1,
+        "pos_switch": 1,
+        "pos_desc": "I LOW"
+      }
+    ]
+  },
+  "pos_specific_scene_cache": {
+    "pos_switch": -1,
+    "pos_scene_names": [],
+    "pos_placements": []
+  },
+  "pos_automation": {
+    "pos_switch": -1,
+    "pos_ceiling": {
+      "pos_switch": -1,
+      "pos_topOn_placements": [],
+      "pos_admob_placements": []
+    },
+    "pos_floor": {
+      "pos_switch": -1,
+      "pos_topOn_placements": [],
+      "pos_admob_placements": []
+    }
+  },
+  "pos_mediations": {
+    "pos_topOn": {
+      "pos_id": 26,
+      "pos_app_id": "h696f818701523",
+      "pos_app_key": "a91247dc1210fb8a3988be3de228266cc",
+      "pos_enable_preset_strategy": false
+    },
+    "pos_admob": {
+      "pos_id": 2
+    },
+    "pos_max": {
+      "pos_id": 5,
+      "pos_applovin_sdk_key": "BR_GKVtc29uUI5eQD2HOR8Jcbnb2mEtMXM9i6GmZascTDGDAQba8B226L_yzdweFW_Zi8nhZQUh89zRlDg2N3P"
+    }
+  },
+  "pos_adjust_tokens": {
+    "pos_adjust_token_ad_impression": "gyl943",
+    "pos_adjust_token_fullscreen_impression": "zan5zx",
+    "pos_adjust_token_high_value_first_day": "g4qa2q",
+    "pos_adjust_token_high_value_next_day": "egbnee"
+  }
+}

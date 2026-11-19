@@ -1,0 +1,3 @@
+-keep class io.threadtamer.runtime.ThreadTamer { public static <methods>; }
+-keep class io.threadtamer.runtime.ConcurrencyInterceptors { public static <methods>; }
+-keep class io.threadtamer.runtime.ConcurrencyLimits { public *; }

@@ -1,0 +1,1326 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Poseidon SDK Runtime Dossier</title>
+  <style>
+    :root {
+      --bg: #f4f0e8;
+      --panel: #fffaf2;
+      --panel-strong: #fff;
+      --text: #1d1b18;
+      --muted: #625a4f;
+      --line: #d8ccbb;
+      --accent: #205c49;
+      --accent-soft: #e0efe9;
+      --warn: #8a3f27;
+      --warn-soft: #f9e7df;
+      --good: #2a5d36;
+      --good-soft: #e7f4ea;
+      --shadow: 0 10px 30px rgba(29, 27, 24, 0.08);
+      --mono: "SFMono-Regular", "Menlo", "Monaco", "Consolas", monospace;
+      --sans: "IBM Plex Sans", "Segoe UI", sans-serif;
+      --serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      background:
+        radial-gradient(circle at top right, rgba(32, 92, 73, 0.10), transparent 32%),
+        radial-gradient(circle at top left, rgba(138, 63, 39, 0.08), transparent 28%),
+        linear-gradient(180deg, #f6f1e9 0%, var(--bg) 100%);
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    .page {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 32px 20px 80px;
+    }
+
+    header {
+      background: linear-gradient(135deg, #205c49 0%, #193d46 100%);
+      color: #fbf6ee;
+      border-radius: 24px;
+      padding: 30px 28px;
+      box-shadow: var(--shadow);
+      margin-bottom: 22px;
+    }
+
+    header h1 {
+      margin: 0 0 10px;
+      font-family: var(--serif);
+      font-size: clamp(2rem, 4vw, 3.3rem);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+
+    header p {
+      margin: 8px 0;
+      max-width: 980px;
+      color: rgba(251, 246, 238, 0.92);
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .meta span,
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      font-size: 0.92rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .card,
+    section,
+    details {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .card {
+      padding: 18px 18px 16px;
+    }
+
+    .summary-card {
+      grid-column: span 4;
+    }
+
+    .summary-card h2 {
+      margin: 0 0 10px;
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .summary-card strong {
+      display: block;
+      font-size: 1.8rem;
+      line-height: 1.05;
+      margin-bottom: 6px;
+      color: var(--accent);
+    }
+
+    section {
+      padding: 22px 22px 18px;
+      margin-bottom: 18px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 1.45rem;
+      letter-spacing: -0.02em;
+    }
+
+    h3 {
+      margin: 22px 0 10px;
+      font-size: 1.08rem;
+      color: var(--accent);
+    }
+
+    h4 {
+      margin: 18px 0 8px;
+      font-size: 0.98rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    p, li {
+      color: var(--text);
+    }
+
+    ul, ol {
+      margin: 8px 0 0 20px;
+      padding: 0;
+    }
+
+    li + li {
+      margin-top: 5px;
+    }
+
+    code {
+      font-family: var(--mono);
+      font-size: 0.92em;
+      padding: 0.08em 0.34em;
+      background: #f1ebdf;
+      border: 1px solid #e1d6c6;
+      border-radius: 6px;
+    }
+
+    pre {
+      overflow: auto;
+      padding: 14px;
+      border-radius: 14px;
+      background: #fbf6ee;
+      border: 1px solid var(--line);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 0.95rem;
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #efe6d8;
+      color: #3e352c;
+      font-weight: 700;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .note,
+    .warn,
+    .good {
+      padding: 14px 15px;
+      border-radius: 14px;
+      margin-top: 12px;
+    }
+
+    .note {
+      background: var(--accent-soft);
+      border: 1px solid #bddcd1;
+    }
+
+    .warn {
+      background: var(--warn-soft);
+      border: 1px solid #ebc5b7;
+    }
+
+    .good {
+      background: var(--good-soft);
+      border: 1px solid #c9e3ce;
+    }
+
+    .two-up {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 14px;
+    }
+
+    .source-list {
+      margin-top: 10px;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    .source-list li {
+      color: var(--muted);
+      word-break: break-word;
+    }
+
+    details {
+      padding: 0;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    details[open] summary {
+      border-bottom: 1px solid var(--line);
+    }
+
+    summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 16px 18px;
+      font-weight: 700;
+      background: #f1e8db;
+    }
+
+    details > div {
+      padding: 18px;
+    }
+
+    .mermaid {
+      background: #fffefb;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      overflow: auto;
+    }
+
+    .columns {
+      columns: 2 280px;
+      column-gap: 24px;
+    }
+
+    .columns ul {
+      break-inside: avoid;
+      margin-bottom: 14px;
+    }
+
+    .small {
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    @media (max-width: 920px) {
+      .summary-card {
+        grid-column: span 12;
+      }
+
+      .two-up {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "base",
+      securityLevel: "loose",
+      themeVariables: {
+        primaryColor: "#f6efe3",
+        primaryTextColor: "#1d1b18",
+        primaryBorderColor: "#cdbca8",
+        lineColor: "#5f6f67",
+        secondaryColor: "#dfece6",
+        tertiaryColor: "#f9e7df",
+        fontFamily: "IBM Plex Sans, Segoe UI, sans-serif"
+      },
+      flowchart: {
+        curve: "basis"
+      }
+    });
+  </script>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Poseidon SDK Runtime Dossier</h1>
+      <p>
+        Source-verified runtime behavior map for the shipped Android SDK in this repository. The goal of this dossier is breadth first and then detail: host contract, startup, config control plane, load/show orchestration, preload families, restrictions, mediation adapters, analytics, persistence, native crypto, and current runtime edge cases.
+      </p>
+      <p>
+        This document prefers active source over older repo notes. Where repo notes and code diverged, the active code path wins and the knowledge base was updated in the same task.
+      </p>
+      <div class="meta">
+        <span>Workspace: <code>/Users/apus/AndroidStudioProjects/poseidonsdk</code></span>
+        <span>Module focus: <code>:poseidon</code></span>
+        <span>Generated: 2026-04-11</span>
+        <span>Format: HTML + Mermaid</span>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card summary-card">
+        <h2>Public Contract</h2>
+        <strong>register → initialize → load/show</strong>
+        <div class="small">The host-facing contract is a static facade on <code>PoseidonAPI</code>, backed by a single registered <code>PoseidonSetupProcessor</code> instance on the main thread.</div>
+      </div>
+      <div class="card summary-card">
+        <h2>Core Runtime Shape</h2>
+        <strong>Hub + Processor + Pools</strong>
+        <div class="small">Loads route through <code>AdFlow</code>, shows through <code>PoseidonAPIProcessor</code>, and cache/search spans main strategy cache plus shared, automation, new-user, notification, and scene-backup pools.</div>
+      </div>
+      <div class="card summary-card">
+        <h2>Main Risk Surface</h2>
+        <strong>Config, gating, fallback</strong>
+        <div class="small">Externally visible behavior is dominated by config resolution, frequency/show/CTR gating, client-side bidder selection, and no-cache fallback rules.</div>
+      </div>
+    </div>
+
+    <section>
+      <h2>1. Runtime Topology</h2>
+      <p>
+        The runtime is not a single straight line. It is a control plane plus several parallel state domains. <code>PoseidonAPIProcessor</code> is the orchestration center, but it relies on setup state, config singletons, preload families, and mediation wrappers that continue mutating shared state after startup.
+      </p>
+      <pre class="mermaid">
+flowchart TD
+    Host[Host app]
+    API[PoseidonAPI facade]
+    Setup[PoseidonSetupProcessor]
+    Base[PoseidonSetupBaseProcessor]
+    Core[CoreRunner]
+    Flow[AdFlow]
+    Strategy[StrategyHub]
+    ConfigHub[ConfigHub]
+    Processor[PoseidonAPIProcessor]
+    Restrict[Restrict layer]
+    Loaders[Ad loaders]
+    Mediation[Mediation SDKs]
+    Cache[Main strategy cache]
+    Pools[Shared / automation / new-user / notification / backup pools]
+    Stats[Analytics + revenue + attribution]
+    Storage[Room + SharedPreferences]
+    Native[JNI cryptor + CRC32 flow control]
+
+    Host --> API
+    Host --> Setup
+    API --> Setup
+    Setup --> Base
+    API --> Processor
+    Processor --> Core
+    Core --> Flow
+    Core --> Strategy
+    Core --> ConfigHub
+    Processor --> Restrict
+    Processor --> Loaders
+    Loaders --> Mediation
+    Processor --> Cache
+    Processor --> Pools
+    Restrict --> Storage
+    Pools --> Storage
+    Stats --> Storage
+    ConfigHub --> Native
+    Restrict --> Native
+    Loaders --> Stats
+    Processor --> Stats
+      </pre>
+      <div class="source-list">
+        Primary files:
+        <ul>
+          <li><code>poseidon/src/androidMain/kotlin/com/poseidon/ad/api/PoseidonAPI.kt</code></li>
+          <li><code>poseidon/src/androidMain/kotlin/com/poseidon/ad/api/PoseidonSetupProcessor.kt</code></li>
+          <li><code>poseidon/src/androidMain/kotlin/com/poseidon/ad/main/processor/PoseidonAPIProcessor.kt</code></li>
+          <li><code>poseidon/src/androidMain/kotlin/com/poseidon/ad/core/CoreRunner.kt</code></li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>2. Host Contract And Runtime Inputs</h2>
+      <h3>2.1 Public entrypoints</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Surface</th>
+            <th>Runtime effect</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>register(PoseidonSetupProcessor)</code></td>
+            <td>Atomically installs the singleton setup instance.</td>
+            <td>Main thread only. Also warms first-open tracking.</td>
+          </tr>
+          <tr>
+            <td><code>initialize()</code></td>
+            <td>Starts remote listeners, reconnect watcher, consent startup, show-limit cleanup, attribution refresh, TopOn grouping, lifecycle callbacks, and mediation init.</td>
+            <td>Main thread only.</td>
+          </tr>
+          <tr>
+            <td><code>loadInterstitial/Open/Rewarded/NativeAd()</code></td>
+            <td>Dispatches off caller thread into the load routing graph.</td>
+            <td>All public load calls background-dispatch before work begins.</td>
+          </tr>
+          <tr>
+            <td><code>showOpen/Interstitial/Rewarded/NativeAd()</code></td>
+            <td>Runs gate-first show orchestration and returns a <code>Cancelable</code>.</td>
+            <td>No-cache live-load branches are lifecycle-cancelable.</td>
+          </tr>
+          <tr>
+            <td><code>loadAndShowBannerAd()</code></td>
+            <td>Runs immediate banner load+show and returns a <code>Destroyable</code>.</td>
+            <td>Banner is not cached.</td>
+          </tr>
+          <tr>
+            <td><code>hasCacheAd()</code></td>
+            <td>Queries live in-memory cache domains.</td>
+            <td>Not just config presence; expired entries are pruned.</td>
+          </tr>
+          <tr>
+            <td><code>doOnPrivacyOptionsIsRequired()</code> / <code>showPrivacyOptionsForm()</code></td>
+            <td>Routes into the GDPR/CMP subsystem.</td>
+            <td>Availability callback and actual UI show are separate paths.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>2.2 Setup processor constructor inputs</h3>
+      <ul>
+        <li><code>application</code>: root context for Room, mediation init, UMP, lifecycle callbacks, network monitoring, and asset access.</li>
+        <li><code>firebaseRemoteConfigProvider</code>: lazy provider wrapped by <code>FirebaseCloudImpl</code>.</li>
+        <li><code>mainActivityClass</code>: host main activity reference, used by lifecycle callbacks to auto-show the GDPR/CMP consent form when that exact activity resumes.</li>
+        <li><code>poseidonSharedPreference</code>: overridable <code>SpHelper</code> for state persistence.</li>
+      </ul>
+
+      <h3>2.3 Build-type and flavor runtime variance</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Axis</th>
+            <th>Behavioral effect</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>debug</code></td>
+            <td><code>POSEIDON_DEBUG_SWITCH=true</code>; local JSON/property overrides are enabled; Napier debug logging is enabled; several parse/setup failures crash instead of only reporting.</td>
+          </tr>
+          <tr>
+            <td><code>qa</code></td>
+            <td>Inherits release-like behavior but forces <code>POSEIDON_DEBUG_SWITCH=true</code>; TopOn preset strategy can still be enabled.</td>
+          </tr>
+          <tr>
+            <td><code>release</code></td>
+            <td>Debug override paths are disabled; embedded release ad config asset is used as a local baseline against Firebase.</td>
+          </tr>
+          <tr>
+            <td>Flavor (<code>lumina</code>, <code>ember</code>)</td>
+            <td>Injects flavor-specific embedded release config asset name, AdMob app id, and <code>maticoo_app_key</code> through Gradle.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>3. Startup And Long-Lived Services</h2>
+      <p>
+        Initialization is a single-shot bootstrap, but many of the things it starts are persistent observers or recurring tasks.
+      </p>
+      <pre class="mermaid">
+sequenceDiagram
+    participant Host
+    participant API as PoseidonAPI
+    participant Setup as PoseidonSetupProcessor
+    participant Base as SetupBase
+    participant RC as FirebaseCloud
+    participant Net as Network watcher
+    participant CMP as ConsentManagementPlatform
+    participant TopOn as TopOnTrafficGrouping
+    participant Mediations as Mediation init
+
+    Host->>API: register(setup)
+    API->>Setup: register()
+    Setup->>Setup: warm first-open timestamp
+    Host->>API: initialize()
+    API->>Setup: initialize()
+    Setup->>Base: super.initialize()
+    Base->>RC: register eager config listeners
+    Base->>Net: watch reconnects
+    Base->>CMP: appStartup()
+    Base->>Base: start AdShowLimit auto-clean
+    Base->>Base: refresh Adjust network/campaign
+    Base->>TopOn: appStartup()
+    Setup->>Setup: register ActivityLifecycleCallbacks
+    Setup->>Mediations: init configured families or all
+      </pre>
+      <table>
+        <thead>
+          <tr>
+            <th>Startup step</th>
+            <th>Owner</th>
+            <th>Persistent side effect</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Register eager Firebase listeners</td>
+            <td><code>PoseidonSetupBaseProcessor.initialize()</code></td>
+            <td>Eager hot-wired listeners for <code>PoseidonConfig</code>, <code>AeoCfg</code>, <code>EstimatedEcpmCfg</code>, <code>RrcRoasCfg</code>, <code>FullscreenAdImpressionIntervalLimitConfiguration</code>, <code>AdLimitShowCfg</code>.</td>
+          </tr>
+          <tr>
+            <td>Install network reconnect watcher</td>
+            <td><code>watchNetworkConnection</code></td>
+            <td>On reconnect, kicks shared-pool preload plus notification-splash preload for the configured display-trigger scene.</td>
+          </tr>
+          <tr>
+            <td>Warm GDPR/CMP</td>
+            <td><code>ConsentManagementPlatform.appStartup()</code></td>
+            <td>Warms consent info and preloads form if ads cannot yet be requested.</td>
+          </tr>
+          <tr>
+            <td>Start show-limit cleanup task</td>
+            <td><code>AdShowLimitConfigProcessor</code></td>
+            <td>5-minute poll; deletes room rows older than 3 days once per day.</td>
+          </tr>
+          <tr>
+            <td>Refresh Adjust attribution network and campaign</td>
+            <td><code>AdjustAttributionNetworkStore</code>, <code>AdjustCampaignStore</code></td>
+            <td>Persists cached attribution and warms TopOn grouping cache.</td>
+          </tr>
+          <tr>
+            <td>Register lifecycle callbacks</td>
+            <td><code>PoseidonSetupProcessor.platformInitialize()</code></td>
+            <td>Tracks top activity, app foreground state, and activity stack used by CTR/CMP/show flows.</td>
+          </tr>
+          <tr>
+            <td>Initialize mediation families</td>
+            <td><code>PoseidonSetupProcessor</code></td>
+            <td>Snapshot-driven: configured families only, or all three in fallback order TopOn → AdMob → MAX.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="warn">
+        <strong>Important nuance.</strong> <code>AdLoadModeControlCfg</code> exists and supports <code>onUpdate</code>, but it is <em>not</em> registered in the eager startup listener set. It is lazy-read on demand.
+      </div>
+    </section>
+
+    <section>
+      <h2>4. Config And Control Plane</h2>
+      <h3>4.1 Config domains</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Domain</th>
+            <th>Remote key</th>
+            <th>Encoding</th>
+            <th>Update mode</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>PoseidonConfig</code></td>
+            <td><code>poseidon_config</code> plus campaign override <code>poseidon_ka_poseidon_config_{campaign}</code></td>
+            <td>Encrypted JSON</td>
+            <td>Eager listener + lazy get</td>
+          </tr>
+          <tr>
+            <td><code>AeoCfg</code></td>
+            <td><code>poseidon_aeo_track_cfg</code></td>
+            <td>Encrypted JSON</td>
+            <td>Eager listener</td>
+          </tr>
+          <tr>
+            <td><code>EstimatedEcpmCfg</code></td>
+            <td><code>poseidon_estimated_ecpm_config</code></td>
+            <td>Encrypted JSON</td>
+            <td>Eager listener</td>
+          </tr>
+          <tr>
+            <td><code>RrcRoasCfg</code></td>
+            <td><code>poseidon_rrc_roas_config</code></td>
+            <td>Encrypted JSON</td>
+            <td>Eager listener</td>
+          </tr>
+          <tr>
+            <td><code>AdLimitShowCfg</code></td>
+            <td><code>poseidon_ad_limit_show_config</code></td>
+            <td>Encrypted JSON</td>
+            <td>Eager listener</td>
+          </tr>
+          <tr>
+            <td><code>FullscreenAdImpressionIntervalLimitConfiguration</code></td>
+            <td><code>poseidon_ad_show_interval_limit_config</code></td>
+            <td>Encrypted JSON</td>
+            <td>Eager listener</td>
+          </tr>
+          <tr>
+            <td><code>AdLoadModeControlCfg</code></td>
+            <td><code>poseidon_ad_load_mode_control_config</code></td>
+            <td>Encrypted JSON</td>
+            <td>Lazy-read only unless explicitly queried</td>
+          </tr>
+          <tr>
+            <td>Traffic sampling</td>
+            <td><code>flow_control_scale_{feature}</code></td>
+            <td>Plain integer</td>
+            <td>Read on demand</td>
+          </tr>
+          <tr>
+            <td>Miscellaneous switches</td>
+            <td><code>high_ecpm_threshold</code>, <code>poseidon_allow_show_ad_no_network</code>, CTR and CMP keys, shared/notification thresholds</td>
+            <td>Plain strings/ints</td>
+            <td>Read on demand</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>4.2 PoseidonConfig resolution order</h3>
+      <pre class="mermaid">
+flowchart TD
+    Start[PoseidonConfig.get/fromRemote]
+    Debug{Debug build?}
+    Local[Try external file poseidon_config.json]
+    Release[Release-style resolution]
+    Embedded[Read embedded release asset]
+    Remote[Read Firebase key]
+    Compare{Both parse?}
+    Choose[Higher semantic version wins]
+    Campaign[Campaign-specific override key]
+    Done[Install instance if newer]
+
+    Start --> Debug
+    Debug -- yes --> Local
+    Local -- success --> Done
+    Local -- miss/fail --> Release
+    Debug -- no --> Release
+    Release --> Embedded
+    Release --> Remote
+    Embedded --> Compare
+    Remote --> Compare
+    Compare -- one side only --> Done
+    Compare -- both --> Choose
+    Choose --> Done
+    Campaign --> Done
+      </pre>
+      <ul>
+        <li>Debug local override is plain JSON on external storage. It is not decrypted first.</li>
+        <li>Release-style resolution compares embedded release config vs Firebase remote and keeps the higher semantic version.</li>
+        <li>Campaign-specific override piggybacks on the same update path and only promotes when the campaign key matches the Adjust campaign and has a newer version.</li>
+        <li><code>ConfigHub.updateFromBackend(json)</code> separately accepts a backend wrapper payload, extracts <code>commercialization.poseidon_mediation.config</code>, decrypts it, and promotes it only if newer.</li>
+      </ul>
+      <div class="note">
+        Several repo notes used to describe more remote-controlled behavior than the source actually implements. Examples corrected in this task: cache TTL is not remote-controlled, and debug local config helpers decode plain JSON directly instead of decrypting local files first.
+      </div>
+    </section>
+
+    <section>
+      <h2>5. Runtime State Domains</h2>
+      <div class="two-up">
+        <div>
+          <h3>5.1 In-memory domains</h3>
+          <ul>
+            <li><strong>Main strategy cache.</strong> Strategy placements loaded through <code>platformLoadAd()</code>, keyed by ad unit id plus per-strategy placement mapping.</li>
+            <li><strong>Shared pools.</strong> <code>SharedCeilAdPool</code> and <code>SharedFloorAdPool</code>, each with its own cache list and request/failure counters.</li>
+            <li><strong>Automation pools.</strong> <code>CeilAutomation</code> and <code>FloorAutomation</code>, recurring preloader caches.</li>
+            <li><strong>New-user caches.</strong> One manager per <code>(adType, mediation)</code> bucket.</li>
+            <li><strong>Notification splash cache.</strong> Single interstitial cache with separate counters for failure, fill count, and request interval.</li>
+            <li><strong>Specific-scene backup cache.</strong> Global interstitial-only pool filtered by supported scene names at query time.</li>
+            <li><strong>CMP form cache.</strong> Cached consent form plus atomic guards for show exclusivity.</li>
+            <li><strong>TopOn attribution cache.</strong> Volatile cached channel/campaign plus last-sent values inside coordinator.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>5.2 Persistent domains</h3>
+          <ul>
+            <li><strong>SharedPreferences.</strong> Device id, first-open timeline, CTR flags, notification counters, shared-pool counters, automation counters, specific-backup counters, attribution cache, RRC/AEO one-shot flags, fullscreen interval timestamp, CMP Europe cache.</li>
+            <li><strong>Room tables.</strong> <code>AdLimitShowInfo</code>, <code>adExtraInfo</code>, <code>AdFrequencyStats</code>.</li>
+            <li><strong>Assets / external files.</strong> Embedded release ad config asset, debug JSON overrides, local Firebase property overrides, TopOn test properties.</li>
+            <li><strong>Native library state.</strong> JNI cryptor, fixed AES key/IV, CRC32 flow-control engine.</li>
+          </ul>
+        </div>
+      </div>
+      <pre class="mermaid">
+flowchart LR
+    Config[Config singletons]
+    MainCache[Main strategy cache]
+    Shared[Shared pools]
+    Auto[Automation pools]
+    NewUser[New-user managers]
+    Notify[Notification cache]
+    Backup[Specific backup]
+    DB[(Room)]
+    SP[(SharedPreferences)]
+
+    Config --> MainCache
+    Config --> Shared
+    Config --> Auto
+    Config --> NewUser
+    Config --> Notify
+    Config --> Backup
+    MainCache --> DB
+    Shared --> SP
+    Auto --> SP
+    NewUser --> SP
+    Notify --> SP
+    Backup --> SP
+      </pre>
+    </section>
+
+    <section>
+      <h2>6. Load Behavior</h2>
+      <h3>6.1 Generic loader pipeline</h3>
+      <pre class="mermaid">
+flowchart TD
+    PublicLoad[Public load API]
+    Bg[dispatchToBackground]
+    Route[AdFlow routing]
+    Preload[platformPreload]
+    Analyze[platformLoadAdWithAnalyzer]
+    Gate[platformLoadAd gates]
+    Resolve[resolveScene]
+    Waterfall[Strategy waterfall recursion]
+    Create[createXxxAdLoader]
+    InitGate[mediation init gate]
+    Mode[AdLoadModeControl]
+    NetLoad[mediationAdLoad]
+    Cache[cache on success]
+    Stats[UnitResponseTracker + BizAdResponseTracker]
+
+    PublicLoad --> Bg --> Route --> Preload --> Analyze --> Gate --> Resolve --> Waterfall --> Create --> InitGate --> Mode --> NetLoad --> Cache
+    NetLoad --> Stats
+      </pre>
+      <ul>
+        <li>All public load entrypoints background-dispatch before doing routing.</li>
+        <li><code>AdFlow</code> diverts notification splash and new-user scenes before ordinary strategy loading.</li>
+        <li><code>platformLoadAd()</code> gates on global switch, network availability, ad-impression-limit load gate, scene resolution, and unified load-frequency control.</li>
+        <li>The actual loader path always checks mediation readiness before calling into the third-party SDK.</li>
+        <li>TopOn has an extra hook: every TopOn load calls <code>TopOnTrafficGrouping.callBeforeTopOnAdLoad(adUnitId)</code> first.</li>
+      </ul>
+
+      <h3>6.2 Waterfall semantics</h3>
+      <ul>
+        <li>The strategy waterfall is success-chained, not parallel fan-out.</li>
+        <li>Placement recursion begins at the lowest freshness/priority index and only advances deeper on success, so later placements are fresher in cache.</li>
+        <li>Cross-type conversion is allowed. A requested fullscreen type can load placements of other fullscreen types or native and later convert at show time.</li>
+        <li>If a placement is already cached, the waterfall treats that as success and continues deeper with <code>loadCallback=null</code> for later placements.</li>
+      </ul>
+
+      <h3>6.3 Load traffic control</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Mode</th>
+            <th>Decision</th>
+            <th>Runtime behavior</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>immediate</code></td>
+            <td><code>RunImmediately</code></td>
+            <td>Calls the loader directly.</td>
+          </tr>
+          <tr>
+            <td><code>serial</code></td>
+            <td><code>EnqueueSerial</code></td>
+            <td>FIFO queue, one active load session at a time.</td>
+          </tr>
+          <tr>
+            <td><code>delay</code></td>
+            <td><code>ScheduleDelay(delayMillis)</code></td>
+            <td>If another ad is loading, waits and can be woken up early when the current load completes.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="warn">
+        <strong>Source-verified nuance.</strong> <code>modeDefault="delay"</code> does <em>not</em> imply delayed behavior by itself. If <code>modeDelay</code> is missing, the implementation falls back to serial queueing. The unit tests explicitly lock this in.
+      </div>
+    </section>
+
+    <section>
+      <h2>7. Preload Families</h2>
+      <h3>7.1 Shared pools</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Pool</th>
+            <th>Number</th>
+            <th>Input config</th>
+            <th>Distinct behavior</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>SharedCeilAdPool</code></td>
+            <td>3</td>
+            <td><code>PoseidonConfig.sharedCeil</code></td>
+            <td>Higher-eCPM shared inventory checked in all fullscreen/native auctions.</td>
+          </tr>
+          <tr>
+            <td><code>SharedFloorAdPool</code></td>
+            <td>1</td>
+            <td><code>PoseidonConfig.sharedFloor</code></td>
+            <td>Lower-tier shared inventory checked when floor participation is enabled.</td>
+          </tr>
+        </tbody>
+      </table>
+      <ul>
+        <li>CAS-guarded to one concurrent preload run per pool.</li>
+        <li>Gates on global switch, network, and ad-impression-limit load gate.</li>
+        <li><code>CacheKey</code> can deduplicate by any cache, by ad type, or by ad unit id.</li>
+        <li>Maintains per-ad-unit consecutive failure counters and daily request counters in SharedPreferences.</li>
+        <li>MAX "No Fill" failures decrement the daily request counter back down.</li>
+      </ul>
+
+      <h3>7.2 Shared-pool trigger matrix</h3>
+      <ul>
+        <li>After any ad load response.</li>
+        <li>At every call-show entry.</li>
+        <li>On impression.</li>
+        <li>On failed-to-show.</li>
+        <li>On dismiss.</li>
+        <li>On explicit app-startup helper.</li>
+        <li>On notification shown or clicked preload entry.</li>
+        <li>On network reconnect.</li>
+      </ul>
+
+      <h3>7.3 Automation</h3>
+      <ul>
+        <li><code>CeilAutomation</code> default interval 30s; <code>FloorAutomation</code> default interval 20s.</li>
+        <li>Each recurring cycle tries all TopOn units plus the first AdMob unit as top-level candidates.</li>
+        <li>If top-level candidates all fail, the system retries the second AdMob unit, then the first AdMob unit.</li>
+        <li>Per-ad-unit failure counters reset daily with <code>computeDailyCounterPlan()</code>.</li>
+      </ul>
+
+      <h3>7.4 New-user managers</h3>
+      <ul>
+        <li>One manager per <code>(adType, mediation)</code> bucket.</li>
+        <li>Only interstitial and rewarded are used.</li>
+        <li>Fullscreen consume priority is global: MAX rewarded → MAX interstitial → AdMob rewarded → AdMob interstitial.</li>
+        <li>Each manager keeps a single cached wrapper and returns it to the manager if it loses the auction.</li>
+      </ul>
+
+      <h3>7.5 Notification splash preload</h3>
+      <ul>
+        <li>Always triggers shared-pool preload first.</li>
+        <li>Then applies configuration check, ad-impression-limit check, cache check, daily failure-count check, daily fill-unused check, request-interval check, and network check before actual load.</li>
+        <li>Display-triggered preload updates last-request time; click-triggered preload resets some counters first.</li>
+        <li>The main notification cache is a single interstitial wrapper.</li>
+      </ul>
+
+      <h3>7.6 Specific-scene backup</h3>
+      <ul>
+        <li>Recurring 5-second loop once started.</li>
+        <li>Implementation is interstitial-only even though the config model is not strongly typed that way.</li>
+        <li>Cache pool is global; supported scene names are enforced only at query/consume time.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>8. Show Behavior</h2>
+      <h3>8.1 Fullscreen gate order</h3>
+      <ol>
+        <li>Global switch.</li>
+        <li>Unified show-frequency check.</li>
+        <li><code>AdShowLimitConfigProcessor.check(sceneName)</code>.</li>
+        <li><code>AdShowLimit.canShowAd()</code>.</li>
+        <li><code>CtrLimit.canShowAd()</code>.</li>
+        <li><code>FullscreenAdImpressionIntervalLimit.canShowAd()</code>.</li>
+        <li>Fullscreen interceptor chain.</li>
+        <li>Network availability unless offline show is explicitly allowed.</li>
+      </ol>
+
+      <h3>8.2 Fullscreen bidder sources</h3>
+      <pre class="mermaid">
+flowchart TD
+    Start[Fullscreen show after gates]
+    CeilShared[SharedCeilAdPool]
+    CeilAuto[CeilAutomation]
+    FloorShared[SharedFloorAdPool]
+    FloorAuto[FloorAutomation]
+    Backup[Specific backup]
+    NewUser[New-user cache]
+    Main[Main strategy cache]
+    NotifyMain[Notification main cache]
+    NotifyFallback[Notification fallback strategy]
+    Bid[selectTopBidder]
+    Winner[Winner show path]
+    NoCache[No cache fallback path]
+
+    Start --> CeilShared
+    Start --> CeilAuto
+    Start --> FloorShared
+    Start --> FloorAuto
+    Start --> Backup
+    Start --> NewUser
+    Start --> Main
+    Start --> NotifyMain
+    Start --> NotifyFallback
+    CeilShared --> Bid
+    CeilAuto --> Bid
+    FloorShared --> Bid
+    FloorAuto --> Bid
+    Backup --> Bid
+    NewUser --> Bid
+    Main --> Bid
+    NotifyMain --> Bid
+    NotifyFallback --> Bid
+    Bid --> Winner
+    Bid --> NoCache
+      </pre>
+      <ul>
+        <li>Notification splash scenes have a special branch: if client bidding is disabled in notification config, only the notification-main ad participates and all other reserved bidders are restored immediately.</li>
+        <li>Non-notification fullscreen scenes use the scene's <code>enableClientBidding</code> flag; if false, only the main strategy cache participates.</li>
+        <li>Bidders restore themselves on loss through source-specific <code>notifyLoose()</code> behavior.</li>
+        <li><code>rowId</code> from scene show-limit checking is created before auction and only marked shown after actual impression callback.</li>
+      </ul>
+
+      <h3>8.3 No-cache fallback</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Scene flags</th>
+            <th>Outcome</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>allowNoCacheRequest=false</code></td>
+            <td>Fail immediately with <code>ERROR_CODE_NO_CACHE_DISALLOWED_LOAD</code>. If <code>allowNoCachePreload=true</code>, background-preload anyway.</td>
+          </tr>
+          <tr>
+            <td><code>allowNoCacheRequest=true</code></td>
+            <td>Start live load via <code>LifecycleCancelableAdLoader</code>; on success re-query cache and show immediately.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>8.4 Native show</h3>
+      <ul>
+        <li>Gates on global switch, unified show frequency, ad-impression-limit show gate, CTR, and network/offline flag.</li>
+        <li>No fullscreen interval limit applies.</li>
+        <li>Bidder sources are smaller: ceil, ceil automation, main, floor, floor automation.</li>
+        <li>On native impression the scene may auto-preload again if <code>allowPreloadWhenNativeAdImpressed</code> is enabled.</li>
+      </ul>
+
+      <h3>8.5 Banner show</h3>
+      <ul>
+        <li>No caching and no bidding.</li>
+        <li>Still checks global switch, ad-impression-limit show gate, network, load frequency, and show frequency.</li>
+        <li>Banner wrappers do not implement a meaningful ready-handle contract; <code>BannerAdBase.isReady()</code> is unsupported.</li>
+      </ul>
+
+      <h3>8.6 Native mixed into fullscreen</h3>
+      <ul>
+        <li>Native wrappers can win fullscreen auctions and are displayed through a dedicated fullscreen host activity instead of a mediation-owned fullscreen UI.</li>
+        <li>Entry points: <code>showNativeMixInterstitialAd</code>, <code>showNativeMixRewardedAd</code>, <code>showNativeMixOpenAd</code>.</li>
+        <li>Rewarded native mix auto-grants <code>RewardItem.UNKNOWN</code> on close.</li>
+      </ul>
+      <div class="warn">
+        <strong>Current runtime defect.</strong> <code>NativeMixOpenAdActivity</code> is currently miswired: its <code>start()</code> stores open refs, but the shared base activity only reads interstitial and rewarded statics, so the open variant exits at the null guard instead of rendering.
+      </div>
+    </section>
+
+    <section>
+      <h2>9. Restriction Systems</h2>
+      <div class="two-up">
+        <div>
+          <h3>9.1 Unified frequency</h3>
+          <ul>
+            <li>Three levels: global → ad type → scene.</li>
+            <li>Show-time pipeline runs new-user first-cold-start check, then content-balance check, then frequency check.</li>
+            <li>Load-stage interval checks log but do not block; show-stage interval checks can block.</li>
+            <li>Room-backed counters use Beijing day keys and purge data older than 3 days on day rollover.</li>
+          </ul>
+
+          <h3>9.2 New-user first cold start</h3>
+          <ul>
+            <li>Eligibility is session-scoped and initialized once.</li>
+            <li>Fresh-install detection uses <code>installTime == updateTime</code>.</li>
+            <li>First-open timeline is separate and persisted during <code>register()</code>.</li>
+            <li>Scenes with <code>firstShow=false</code> can be blocked before ordinary frequency checks.</li>
+          </ul>
+
+          <h3>9.3 Content balance</h3>
+          <ul>
+            <li>Pre-show gate for show frequency only.</li>
+            <li>Tracks per-page ad counts with single-count protection for native and banner.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>9.4 Show-limit families</h3>
+          <ul>
+            <li><strong>Global AdShowLimit.</strong> Counts only AdMob/Facebook impressions for daily cap.</li>
+            <li><strong>Scene AdLimitShowCfg.</strong> Room-backed per-scene windowing logic with a <code>(rowId, canShow)</code> check result and later <code>updateShown(rowId)</code>.</li>
+          </ul>
+
+          <h3>9.5 CTR</h3>
+          <ul>
+            <li>Counts clicks per session.</li>
+            <li>Can force-close the ad activity and can also mark the daily limit as reached.</li>
+            <li>Daily reset uses local date helper, not Beijing time.</li>
+          </ul>
+
+          <h3>9.6 Fullscreen interval limit</h3>
+          <ul>
+            <li>Can scope limited ad types separately for close recording and show checking.</li>
+            <li>Uses either flat interval or day-based interval map keyed from first-open age.</li>
+            <li>Uses system timezone for day math, not Beijing timezone.</li>
+          </ul>
+
+          <h3>9.7 Traffic sampling</h3>
+          <ul>
+            <li><code>TrafficLimit</code> is separate from load-mode traffic control.</li>
+            <li>Uses device-local persisted id plus native CRC32 sampling to gate diagnostics and other sampled flows.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>10. Mediation Families</h2>
+      <h3>10.1 Initialization behavior</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Family</th>
+            <th>Init characteristics</th>
+            <th>Notable runtime quirks</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>TopOn</td>
+            <td><code>ATSDK.init(appId, appKey)</code>; network debug logs follow <code>POSEIDON_DEBUG_SWITCH</code>.</td>
+            <td>Preset strategy assets are only used when enabled in config and build switch permits it; debug builds crash if preset strategy is expected but assets are missing.</td>
+          </tr>
+          <tr>
+            <td>AdMob</td>
+            <td><code>MobileAds.initialize()</code> on <code>Dispatchers.IO</code>.</td>
+            <td>Has explicit <code>isInitComplete()</code> check in loaders in addition to the generic mediation gate.</td>
+          </tr>
+          <tr>
+            <td>MAX</td>
+            <td><code>AppLovinSdk.initialize()</code> using config-supplied sdk key.</td>
+            <td>Debug enables verbose logging; release disables logs. Rewarded loader still uses reflection for constructor access.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>10.2 Runtime adapter shape</h3>
+      <ul>
+        <li>All three families implement the same generic loader/show wrapper contracts across interstitial, rewarded, open, native, and banner.</li>
+        <li>Loaders dispatch paid events, impression/click/close events, and failed-to-show events through shared <code>AdBase</code> plumbing.</li>
+        <li>TopOn banner auto-refresh reuses the same load-success path as initial load.</li>
+        <li>TopOn open ads are displayed through a dedicated <code>TopOnOpenActivity</code>, not directly in-place.</li>
+      </ul>
+
+      <h3>10.3 TopOn-specific runtime notes</h3>
+      <ul>
+        <li>Before any TopOn load, the SDK refreshes/sends attribution via <code>TopOnTrafficGrouping.callBeforeTopOnAdLoad()</code>.</li>
+        <li>TopOn interstitial and rewarded failed-to-show callbacks are owned by the load-side SDK listeners.</li>
+        <li>TopOn paid-event extraction special-cases AdMob-backed fills inside TopOn by reading <code>extInfoMap</code> precision/currency/value-micros.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>11. Analytics, Revenue, Attribution</h2>
+      <h3>11.1 Emission layers</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Layer</th>
+            <th>Examples</th>
+            <th>When it fires</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Core ad trackers</td>
+            <td><code>adv_res</code>, <code>adv_show</code>, <code>adv_click</code>, <code>adv_hide</code>, <code>adv_revenue</code>, <code>adv_adpv</code></td>
+            <td>Load, impression, click, close, revenue, show-call success/failure.</td>
+          </tr>
+          <tr>
+            <td>Infrastructure/base</td>
+            <td><code>error_detection</code>, <code>biz_remote_config_recv</code>, <code>poseidon_config_version_report</code></td>
+            <td>Parse failures, config delivery, config promotions.</td>
+          </tr>
+          <tr>
+            <td>Business analyzers</td>
+            <td>CMP, CTR, notification preload, TopOn traffic grouping, Adjust attribution, ADPV gap, per-unit response</td>
+            <td>Subsystem-specific side effects.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>11.2 Revenue path</h3>
+      <ul>
+        <li>Paid events flow through <code>AdBase.dispatchOnPaidEvent()</code>.</li>
+        <li>That emits ad-revenue analytics, Adjust ad-revenue, Firebase revenue, Adjust impression tokens, cumulative revenue threshold tracking, and then asynchronously persists a revenue row.</li>
+        <li>After a successful revenue insert, the SDK evaluates AEO and RRC ROAS rules.</li>
+      </ul>
+
+      <h3>11.3 AEO and RRC ROAS</h3>
+      <ul>
+        <li><strong>AEO.</strong> One-shot threshold rules over revenue rows within a first-open hour window and filtered by ad types; fires Adjust token and/or Firebase event then stores a boolean flag.</li>
+        <li><strong>RRC ROAS.</strong> Two rule families: ARPU thresholds within first-open hour windows and single-impression eCPM thresholds; each rule is one-shot via SharedPreferences.</li>
+      </ul>
+
+      <h3>11.4 TopOn attribution dispatch</h3>
+      <pre class="mermaid">
+flowchart TD
+    Adjust[Adjust attribution callback]
+    Raw[Raw network/campaign]
+    Source[TopOnAttributionSource]
+    Store[Adjust stores + AttributionChannelMtg]
+    Cache[TopOnTrafficGrouping cache]
+    Decide[evaluateTopOnDispatchNeed]
+    Main[runOnMainThread double-check]
+    Send[ATSDK.initCustomMap]
+
+    Adjust --> Raw --> Source --> Store --> Cache --> Decide --> Main --> Send
+      </pre>
+      <ul>
+        <li>Normalized channel is required; empty normalized channel skips dispatch.</li>
+        <li>Regex sanitizer strips non-alphanumeric-or-underscore characters.</li>
+        <li>Dispatch is skipped if normalized values have not changed.</li>
+        <li>The coordinator performs a pre-check off-main-thread and then rechecks on the main thread before actually sending.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>12. Crypto, Native Identity, And Offline Companions</h2>
+      <ul>
+        <li>Android cryptor bridge: <code>com.poseidon.ad.main.strategy.cryptor.Cryptor</code>.</li>
+        <li>Native library name: <code>PoseidonCypt</code>.</li>
+        <li>Rust core implements AES-256-CBC with fixed compiled key and fixed IV.</li>
+        <li>The same native core also exports CRC32-based deterministic traffic sampling.</li>
+        <li>Desktop/CI companion module exposes the same encrypt/decrypt behavior through a desktop JAR that loads packaged native binaries.</li>
+        <li>JNI symbol identity is tied to the current package/class names, so clone work must change both crypto material and JNI/native identity.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>13. Source-Verified Edge Cases And Corrections</h2>
+      <ul>
+        <li>Cache expiry is currently hardcoded to <code>3000000L</code> ms (50 minutes), not remote-controlled.</li>
+        <li><code>modeDefault="delay"</code> without a <code>modeDelay</code> block falls back to serial queueing.</li>
+        <li><code>NativeMixOpenAdActivity</code> is currently miswired and exits before rendering.</li>
+        <li>Shared-pool request-count gating increments on request start, not only on success.</li>
+        <li>Fullscreen show-limit rows are created before bidder selection but only marked shown from the actual impression callback path.</li>
+        <li>Notification and new-user fullscreen caches do not enforce readiness at consume time the same way the main/shared/automation/backup pools do.</li>
+        <li>Fullscreen interval-day math uses system timezone; unified frequency counters use Beijing day keys; CTR daily reset uses local-date helper.</li>
+      </ul>
+    </section>
+
+    <details open>
+      <summary>Appendix A. Runtime Package Inventory</summary>
+      <div>
+        <p class="small">
+          Package groups under <code>poseidon/src/androidMain/kotlin/com/poseidon/ad</code>.
+        </p>
+        <div class="columns">
+          <ul>
+            <li><code>api</code></li>
+            <li><code>cloud</code></li>
+            <li><code>common/storage/db</code></li>
+            <li><code>common/storage/file</code></li>
+            <li><code>common/storage/sp</code></li>
+            <li><code>common/toolkit</code></li>
+            <li><code>core/config</code></li>
+            <li><code>core/flow</code></li>
+            <li><code>core/log</code></li>
+            <li><code>core/strategy</code></li>
+          </ul>
+          <ul>
+            <li><code>main/adinfo</code></li>
+            <li><code>main/load</code></li>
+            <li><code>main/preload/new</code></li>
+            <li><code>main/preload/notification</code></li>
+            <li><code>main/preload/share</code></li>
+            <li><code>main/preload/special</code></li>
+            <li><code>main/price</code></li>
+            <li><code>main/processor</code></li>
+            <li><code>main/show</code></li>
+            <li><code>main/show/mixed</code></li>
+          </ul>
+          <ul>
+            <li><code>main/strategy/aeo</code></li>
+            <li><code>main/strategy/common</code></li>
+            <li><code>main/strategy/cryptor</code></li>
+            <li><code>main/strategy/estimated</code></li>
+            <li><code>main/strategy/limit</code></li>
+            <li><code>main/strategy/rrc</code></li>
+            <li><code>mediation/admob</code></li>
+            <li><code>mediation/max</code></li>
+            <li><code>mediation/topon</code></li>
+          </ul>
+          <ul>
+            <li><code>restrict/content</code></li>
+            <li><code>restrict/ctr</code></li>
+            <li><code>restrict/gdpr</code></li>
+            <li><code>restrict/new</code></li>
+            <li><code>restrict/show</code></li>
+            <li><code>restrict/traffic</code></li>
+            <li><code>restrict/unification</code></li>
+            <li><code>special/topon</code></li>
+            <li><code>statistics/base</code></li>
+            <li><code>statistics/biz</code></li>
+            <li><code>statistics/core</code></li>
+          </ul>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Appendix B. Runtime Key Registry</summary>
+      <div>
+        <h4>Config keys</h4>
+        <ul>
+          <li><code>poseidon_config</code></li>
+          <li><code>poseidon_ka_poseidon_config_{campaign}</code></li>
+          <li><code>poseidon_aeo_track_cfg</code></li>
+          <li><code>poseidon_estimated_ecpm_config</code></li>
+          <li><code>poseidon_rrc_roas_config</code></li>
+          <li><code>poseidon_ad_limit_show_config</code></li>
+          <li><code>poseidon_ad_show_interval_limit_config</code></li>
+          <li><code>poseidon_ad_load_mode_control_config</code></li>
+        </ul>
+
+        <h4>On-demand control keys</h4>
+        <ul>
+          <li><code>high_ecpm_threshold</code></li>
+          <li><code>poseidon_allow_show_ad_no_network</code></li>
+          <li><code>poseidon_{name}_automation_preload_interval</code></li>
+          <li><code>shared_max_request_count_daily_of_{adUnitId}</code></li>
+          <li><code>notification_splash_ad_max_consecutive_load_failures_count</code></li>
+          <li><code>notification_splash_ad_max_ad_filled_unused_count</code></li>
+          <li><code>poseidon_ctr_enabled</code></li>
+          <li><code>poseidon_ctr_force_close_ad_on_click_count</code></li>
+          <li><code>poseidon_ctr_cannot_show_ad_today_on_click_count</code></li>
+          <li><code>poseidon_ctr_close_ad_enabled</code></li>
+          <li><code>poseidon_ctr_activity_partial_name</code></li>
+          <li><code>ump_tag_for_under_age_of_consent</code></li>
+          <li><code>test_cmp_force_in_europe</code></li>
+          <li><code>test_cmp_test_device_hashed_id</code></li>
+          <li><code>flow_control_scale_{feature}</code></li>
+        </ul>
+      </div>
+    </details>
+
+    <details>
+      <summary>Appendix C. Analytics Event Registry</summary>
+      <div>
+        <ul>
+          <li><code>adv_res</code></li>
+          <li><code>adv_show</code></li>
+          <li><code>adv_click</code></li>
+          <li><code>adv_hide</code></li>
+          <li><code>adv_revenue</code></li>
+          <li><code>mediation_init</code></li>
+          <li><code>adv_adpv</code></li>
+          <li><code>error_detection</code></li>
+          <li><code>biz_remote_config_recv</code></li>
+          <li><code>poseidon_config_version_report</code></li>
+          <li><code>Total_Ads_Revenue_001</code></li>
+          <li><code>ctr_limit_analyzer</code></li>
+          <li><code>key_behavior_buying_analyzer</code></li>
+          <li><code>consent_management_platform_analyzer</code></li>
+          <li><code>notification_splash_ad_preload_analyzer</code></li>
+          <li><code>topOn_traffic_grouping_analyzer</code></li>
+          <li><code>tohunga_analyzer</code></li>
+          <li><code>adjust_attribution_network_analyzer</code></li>
+          <li><code>adjust_attribution_campaign_analyzer</code></li>
+          <li><code>adjust_attribution_analyzer</code></li>
+          <li><code>kjv_b_l_ad_unit_loaded</code></li>
+          <li><code>adpv_gap_detection</code></li>
+        </ul>
+      </div>
+    </details>
+  </div>
+</body>
+</html>

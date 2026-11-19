@@ -1,0 +1,116 @@
+import com.android.build.api.attributes.BuildTypeAttr
+
+plugins {
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.jetbrains.kotlin.android)
+    id 'com.vanniktech.maven.publish'
+}
+
+def publicationSpec = new Properties()
+file('../plugin/gradle.properties').withInputStream { publicationSpec.load(it) }
+def groupBase = publicationSpec.getProperty('GROUP') ?: 'io.threadtamer'
+def baseVersion = publicationSpec.getProperty('THREAD_TAMER_VERSION_NAME') ?: '1.0.0'
+def artifactBase = publicationSpec.getProperty('THREAD_TAMER_RUNTIME_ARTIFACT_ID') ?: 'thread-tamer-runtime'
+def pomLabel = 'Thread Tamer Runtime'
+def pomDesc = 'Android runtime thread governance bridge'
+group = groupBase
+version = baseVersion
+def releaseBuildTypeAttr = objects.named(BuildTypeAttr, 'release')
+extensions.extraProperties['ANDROID_VARIANT_TO_PUBLISH'] = 'release'
+
+android {
+    namespace 'io.threadtamer.runtime'
+    compileSdk libs.versions.compileSdk.get().toInteger()
+
+    defaultConfig {
+        minSdk libs.versions.minSdk.get().toInteger()
+        consumerProguardFiles 'consumer-guard.pro'
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        create('qa') {
+            initWith(release)
+            matchingFallbacks += ['release']
+            debuggable true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+
+}
+
+androidComponents {
+    onVariants(selector().withBuildType('qa')) { variant ->
+        variant.compileConfiguration?.attributes?.attribute(BuildTypeAttr.ATTRIBUTE, releaseBuildTypeAttr)
+        variant.runtimeConfiguration?.attributes?.attribute(BuildTypeAttr.ATTRIBUTE, releaseBuildTypeAttr)
+    }
+}
+
+dependencies {
+    testImplementation libs.junit
+}
+
+mavenPublishing {
+    pom {
+        name.set(pomLabel)
+        description.set(pomDesc)
+        inceptionYear.set('2026')
+    }
+}
+
+afterEvaluate {
+    publishing {
+        repositories.named('xal') { repository ->
+            def releaseRepository = findProperty('RELEASE_REPOSITORY_URL')?.toString() ?: 'https://maven.apuscn.com/nexus/content/repositories/android-xal-releases/'
+            def snapshotRepository = findProperty('SNAPSHOT_REPOSITORY_URL')?.toString() ?: 'https://maven.apuscn.com/nexus/content/repositories/android-xal-snapshots/'
+            repository.url = baseVersion.endsWith('SNAPSHOT') ? snapshotRepository : releaseRepository
+        }
+        publications {
+            ['release', 'maven'].each { publicationName ->
+                def defaultPublication = findByName(publicationName)
+                if (defaultPublication != null) {
+                    remove(defaultPublication)
+                }
+            }
+            def remoteTasks = []
+            ['debug', 'qa', 'release'].each { buildTypeName ->
+                def publicationName = "threadTamerRuntime${buildTypeName.capitalize()}"
+                create(publicationName, MavenPublication) {
+                    from components.findByName(buildTypeName)
+                    groupId = groupBase
+                    artifactId = artifactBase
+                    version = "${baseVersion}-${buildTypeName}"
+                    pom {
+                        name.set("${pomLabel}-${buildTypeName}")
+                        description.set(pomDesc)
+                        packaging = 'aar'
+                    }
+                }
+                remoteTasks << "publish${publicationName.capitalize()}PublicationToXalRepository"
+            }
+            tasks.matching { task ->
+                task.name.startsWith('publishReleasePublication') || task.name.startsWith('publishMavenPublication')
+            }.configureEach { task ->
+                task.enabled = false
+            }
+            tasks.register('publishAllVariants') {
+                group = 'publishing'
+                description = 'Publishes Thread Tamer runtime debug, QA, and release variants to XAL'
+                dependsOn(remoteTasks)
+            }
+        }
+    }
+}

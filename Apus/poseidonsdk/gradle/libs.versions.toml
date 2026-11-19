@@ -1,0 +1,51 @@
+[versions]
+agp = "8.7.3"
+cardview = "1.0.0"
+constraintlayout = "2.1.4"
+rust = "0.9.5"
+kotlin = "2.3.0"
+coreKtx = "1.9.0"
+junit = "4.13.2"
+junitVersion = "1.2.1"
+espressoCore = "3.6.1"
+appcompat = "1.6.1"
+compileSdk = "34"
+coroutines = "1.10.1"
+targetSdk = "33"
+minSdk = "26"
+ndk = "29.0.13599879"
+atomicfu = "0.25.0"
+webkit = "1.13.0"
+
+[libraries]
+napier = { module = "io.github.aakira:napier", version = "2.7.1" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+gradleMavenPublishPlugin = "com.vanniktech:gradle-maven-publish-plugin:0.21.0"
+androidx-cardview = { module = "androidx.cardview:cardview", version.ref = "cardview" }
+androidx-webkit = { module = "androidx.webkit:webkit", version.ref = "webkit" }
+androidx-constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "constraintlayout" }
+jetbrains-kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+jetbrains-kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
+dokka-gradle-plugin = { module = "org.jetbrains.dokka:dokka-gradle-plugin", version = "1.6.10" }
+rust-gradle-plugin = { module = "org.mozilla.rust-android-gradle:plugin", version.ref = "rust" }
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
+androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+androidx-activity = { group = "androidx.activity", name = "activity", version = "1.9.1" }
+androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version = "1.9.1" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version = "1.6.1" }
+kotlinx-atomicfu = { module = "org.jetbrains.kotlinx:atomicfu", version.ref = "atomicfu" }
+androidx-annotation-multiplatform = { module = "androidx.annotation:annotation", version = "1.8.2" }
+androidx-collection-multiplatform = { module = "androidx.collection:collection", version = "1.4.4" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlinCocoapods = { id = "org.jetbrains.kotlin.native.cocoapods", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlinx-atomicfu = { id = "org.jetbrains.kotlinx.atomicfu", version.ref = "atomicfu" }

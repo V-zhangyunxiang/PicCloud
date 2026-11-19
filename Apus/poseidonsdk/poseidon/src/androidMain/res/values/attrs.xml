@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="NativeTemplateView">
+        <attr name="template_type" format="reference"/>
+        <attr name="cta_view_id" format="reference"/>
+        <attr name="media_view_id" format="reference"/>
+        <attr name="ad_icon_view_id" format="reference"/>
+        <attr name="title_view_id" format="reference"/>
+        <attr name="description_view_id" format="reference"/>
+        <attr name="ad_log_view_id" format="reference"/>
+    </declare-styleable>
+</resources>

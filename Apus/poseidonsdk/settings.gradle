@@ -1,0 +1,60 @@
+pluginManagement {
+    repositories {
+        mavenLocal()
+        google {
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
+        //noinspection JcenterRepositoryObsolete
+        jcenter()
+        mavenCentral()
+        gradlePluginPortal()
+        maven { url "https://artifact.bytedance.com/repository/byteX/" }
+        maven { url 'https://maven.apuscn.com/nexus/content/repositories/android-xal-releases/' }
+        maven { url 'https://maven.apuscn.com/nexus/content/repositories/android-xal-snapshots/' }
+
+        maven { url 'https://maven.aliyun.com/repository/central' }
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.aliyun.com/repository/releases' }
+        maven { url 'https://maven.aliyun.com/repository/jcenter' }
+        maven { url("https://artifactory.bidmachine.io/bidmachine") }
+    }
+}
+dependencyResolutionManagement {
+    // https://youtrack.jetbrains.com/issue/KT-58059/ios-KMM-sync-broken-with-kotlin-gradle-plugin-1.8.20
+    // Uncomment this line until kotlin version >= 1.9.20
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        mavenLocal()
+        google()
+        //noinspection JcenterRepositoryObsolete
+        jcenter()
+        mavenCentral()
+        maven { url 'https://maven.apuscn.com/nexus/content/repositories/android-xal-releases/' }
+        maven { url 'https://maven.apuscn.com/nexus/content/repositories/android-xal-snapshots/' }
+
+        //Anythink(Core)
+        maven { url "https://jfrog.anythinktech.com/artifactory/overseas_sdk" }
+        //Mintegral
+        maven { url "https://dl-maven-android.mintegral.com/repository/mbridge_android_sdk_oversea" }
+        //pangle
+        maven { url "https://artifact.bytedance.com/repository/pangle" }
+        maven { setUrl("https://artifactory.bidmachine.io/bidmachine") }
+        maven { url "https://cboost.jfrog.io/artifactory/chartboost-ads/" }
+    }
+}
+
+rootProject.name = "poseidon-sdk"
+include ':app'
+include ':poseidon'
+include ':poseidon-cryptor'
+include ':tamer-runtime'
+include ':tamer-plugin'
+project(":tamer-runtime").projectDir = file("tools/thread-tamer/runtime")
+project(":tamer-plugin").projectDir = file("tools/thread-tamer/plugin")
+

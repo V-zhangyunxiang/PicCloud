@@ -1,0 +1,10 @@
+[package]
+name = "crc32_cli"
+version = "0.1.0"
+authors = ["Lenox <xianxueliang@apusapps.com>"]
+edition = "2021"
+
+
+[dependencies]
+crc32fast = "1.4.2"
+structopt = "0.3"

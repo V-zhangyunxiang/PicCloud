@@ -1,0 +1,37 @@
+[package]
+name = "cryptor"
+version = "0.1.0"
+authors = ["Lenox <xianxueliang@apusapps.com>"]
+edition = "2021"
+
+[dependencies]
+aes = "0.7"
+block-modes = "0.8"
+block-padding = "0.3"
+base64 = "0.13"
+rand = "0.8.5"
+crc32fast = "1.4.2"
+
+[target.'cfg(target_os="android")'.dependencies]
+jni = { version = "0.21.1", default-features = false }
+
+[target.'cfg(target_os="linux")'.dependencies]
+jni = { version = "0.21.1", default-features = false }
+
+[target.'cfg(target_os="macos")'.dependencies]
+jni = { version = "0.21.1", default-features = false }
+
+[target.'cfg(target_os="windows")'.dependencies]
+jni = { version = "0.21.1", default-features = false }
+
+# https://github.com/rust-lang/cargo/issues/4881
+# Android targets need cdylib
+# iOS need staticlib
+# unfortunately that's not supported by Cargo right now
+[lib]
+name = "PoseidonCypt"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[profile.release]
+# https://gendignoux.com/blog/2022/10/24/rust-library-android.html
+strip = true

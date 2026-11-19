@@ -1,0 +1,131 @@
+{
+  "schema": 1,
+  "active": true,
+  "bridgeType": "io.threadtamer.runtime.ConcurrencyInterceptors",
+  "operations": [
+    {
+      "origin": { "type": "java.lang.Thread", "name": "<init>", "descriptor": "()V", "dispatch": "SPECIAL" },
+      "redirect": { "name": "forgeThread", "descriptor": "()Ljava/lang/Thread;" }
+    },
+    {
+      "origin": { "type": "java.lang.Thread", "name": "<init>", "descriptor": "(Ljava/lang/Runnable;)V", "dispatch": "SPECIAL" },
+      "redirect": { "name": "forgeThread", "descriptor": "(Ljava/lang/Runnable;)Ljava/lang/Thread;" }
+    },
+    {
+      "origin": { "type": "java.lang.Thread", "name": "<init>", "descriptor": "(Ljava/lang/String;)V", "dispatch": "SPECIAL" },
+      "redirect": { "name": "forgeThread", "descriptor": "(Ljava/lang/String;)Ljava/lang/Thread;" }
+    },
+    {
+      "origin": { "type": "java.lang.Thread", "name": "<init>", "descriptor": "(Ljava/lang/Runnable;Ljava/lang/String;)V", "dispatch": "SPECIAL" },
+      "redirect": { "name": "forgeThread", "descriptor": "(Ljava/lang/Runnable;Ljava/lang/String;)Ljava/lang/Thread;" }
+    },
+    {
+      "origin": { "type": "java.lang.Thread", "name": "<init>", "descriptor": "(Ljava/lang/ThreadGroup;Ljava/lang/Runnable;)V", "dispatch": "SPECIAL" },
+      "redirect": { "name": "forgeThread", "descriptor": "(Ljava/lang/ThreadGroup;Ljava/lang/Runnable;)Ljava/lang/Thread;" }
+    },
+    {
+      "origin": { "type": "java.lang.Thread", "name": "<init>", "descriptor": "(Ljava/lang/ThreadGroup;Ljava/lang/String;)V", "dispatch": "SPECIAL" },
+      "redirect": { "name": "forgeThread", "descriptor": "(Ljava/lang/ThreadGroup;Ljava/lang/String;)Ljava/lang/Thread;" }
+    },
+    {
+      "origin": { "type": "java.lang.Thread", "name": "<init>", "descriptor": "(Ljava/lang/ThreadGroup;Ljava/lang/Runnable;Ljava/lang/String;)V", "dispatch": "SPECIAL" },
+      "redirect": { "name": "forgeThread", "descriptor": "(Ljava/lang/ThreadGroup;Ljava/lang/Runnable;Ljava/lang/String;)Ljava/lang/Thread;" }
+    },
+    {
+      "origin": { "type": "java.lang.Thread", "name": "<init>", "descriptor": "(Ljava/lang/ThreadGroup;Ljava/lang/Runnable;Ljava/lang/String;J)V", "dispatch": "SPECIAL" },
+      "redirect": { "name": "forgeThread", "descriptor": "(Ljava/lang/ThreadGroup;Ljava/lang/Runnable;Ljava/lang/String;J)Ljava/lang/Thread;" }
+    },
+    {
+      "origin": { "type": "android.os.HandlerThread", "name": "<init>", "descriptor": "(Ljava/lang/String;)V", "dispatch": "SPECIAL" },
+      "redirect": { "name": "forgeLooperThread", "descriptor": "(Ljava/lang/String;)Landroid/os/HandlerThread;" }
+    },
+    {
+      "origin": { "type": "android.os.HandlerThread", "name": "<init>", "descriptor": "(Ljava/lang/String;I)V", "dispatch": "SPECIAL" },
+      "redirect": { "name": "forgeLooperThread", "descriptor": "(Ljava/lang/String;I)Landroid/os/HandlerThread;" }
+    },
+    {
+      "origin": { "type": "java.lang.Thread", "name": "start", "descriptor": "()V", "dispatch": "VIRTUAL" },
+      "redirect": { "name": "ignite", "descriptor": "(Ljava/lang/Thread;)V" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.Executors", "name": "newCachedThreadPool", "descriptor": "()Ljava/util/concurrent/ExecutorService;", "dispatch": "STATIC" },
+      "redirect": { "name": "cachedWorkers" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.Executors", "name": "newCachedThreadPool", "descriptor": "(Ljava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ExecutorService;", "dispatch": "STATIC" },
+      "redirect": { "name": "cachedWorkers" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.Executors", "name": "newFixedThreadPool", "descriptor": "(I)Ljava/util/concurrent/ExecutorService;", "dispatch": "STATIC" },
+      "redirect": { "name": "fixedWorkers" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.Executors", "name": "newFixedThreadPool", "descriptor": "(ILjava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ExecutorService;", "dispatch": "STATIC" },
+      "redirect": { "name": "fixedWorkers" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.Executors", "name": "newSingleThreadExecutor", "descriptor": "()Ljava/util/concurrent/ExecutorService;", "dispatch": "STATIC" },
+      "redirect": { "name": "singleWorker" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.Executors", "name": "newSingleThreadExecutor", "descriptor": "(Ljava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ExecutorService;", "dispatch": "STATIC" },
+      "redirect": { "name": "singleWorker" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.Executors", "name": "newScheduledThreadPool", "descriptor": "(I)Ljava/util/concurrent/ScheduledExecutorService;", "dispatch": "STATIC" },
+      "redirect": { "name": "scheduledWorkers" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.Executors", "name": "newScheduledThreadPool", "descriptor": "(ILjava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ScheduledExecutorService;", "dispatch": "STATIC" },
+      "redirect": { "name": "scheduledWorkers" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.Executors", "name": "newSingleThreadScheduledExecutor", "descriptor": "()Ljava/util/concurrent/ScheduledExecutorService;", "dispatch": "STATIC" },
+      "redirect": { "name": "singleScheduler" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.Executors", "name": "newSingleThreadScheduledExecutor", "descriptor": "(Ljava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ScheduledExecutorService;", "dispatch": "STATIC" },
+      "redirect": { "name": "singleScheduler" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.Executors", "name": "newWorkStealingPool", "descriptor": "()Ljava/util/concurrent/ExecutorService;", "dispatch": "STATIC" },
+      "redirect": { "name": "workStealers" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.Executors", "name": "newWorkStealingPool", "descriptor": "(I)Ljava/util/concurrent/ExecutorService;", "dispatch": "STATIC" },
+      "redirect": { "name": "workStealers" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.ThreadPoolExecutor", "name": "<init>", "descriptor": "(IIJLjava/util/concurrent/TimeUnit;Ljava/util/concurrent/BlockingQueue;)V", "dispatch": "SPECIAL" },
+      "redirect": { "name": "forgeExecutor", "descriptor": "(IIJLjava/util/concurrent/TimeUnit;Ljava/util/concurrent/BlockingQueue;)Ljava/util/concurrent/ThreadPoolExecutor;" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.ThreadPoolExecutor", "name": "<init>", "descriptor": "(IIJLjava/util/concurrent/TimeUnit;Ljava/util/concurrent/BlockingQueue;Ljava/util/concurrent/ThreadFactory;)V", "dispatch": "SPECIAL" },
+      "redirect": { "name": "forgeExecutor", "descriptor": "(IIJLjava/util/concurrent/TimeUnit;Ljava/util/concurrent/BlockingQueue;Ljava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ThreadPoolExecutor;" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.ThreadPoolExecutor", "name": "<init>", "descriptor": "(IIJLjava/util/concurrent/TimeUnit;Ljava/util/concurrent/BlockingQueue;Ljava/util/concurrent/RejectedExecutionHandler;)V", "dispatch": "SPECIAL" },
+      "redirect": { "name": "forgeExecutor", "descriptor": "(IIJLjava/util/concurrent/TimeUnit;Ljava/util/concurrent/BlockingQueue;Ljava/util/concurrent/RejectedExecutionHandler;)Ljava/util/concurrent/ThreadPoolExecutor;" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.ThreadPoolExecutor", "name": "<init>", "descriptor": "(IIJLjava/util/concurrent/TimeUnit;Ljava/util/concurrent/BlockingQueue;Ljava/util/concurrent/ThreadFactory;Ljava/util/concurrent/RejectedExecutionHandler;)V", "dispatch": "SPECIAL" },
+      "redirect": { "name": "forgeExecutor", "descriptor": "(IIJLjava/util/concurrent/TimeUnit;Ljava/util/concurrent/BlockingQueue;Ljava/util/concurrent/ThreadFactory;Ljava/util/concurrent/RejectedExecutionHandler;)Ljava/util/concurrent/ThreadPoolExecutor;" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.ScheduledThreadPoolExecutor", "name": "<init>", "descriptor": "(I)V", "dispatch": "SPECIAL" },
+      "redirect": { "name": "forgeScheduledExecutor", "descriptor": "(I)Ljava/util/concurrent/ScheduledThreadPoolExecutor;" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.ScheduledThreadPoolExecutor", "name": "<init>", "descriptor": "(ILjava/util/concurrent/ThreadFactory;)V", "dispatch": "SPECIAL" },
+      "redirect": { "name": "forgeScheduledExecutor", "descriptor": "(ILjava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ScheduledThreadPoolExecutor;" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.ScheduledThreadPoolExecutor", "name": "<init>", "descriptor": "(ILjava/util/concurrent/RejectedExecutionHandler;)V", "dispatch": "SPECIAL" },
+      "redirect": { "name": "forgeScheduledExecutor", "descriptor": "(ILjava/util/concurrent/RejectedExecutionHandler;)Ljava/util/concurrent/ScheduledThreadPoolExecutor;" }
+    },
+    {
+      "origin": { "type": "java.util.concurrent.ScheduledThreadPoolExecutor", "name": "<init>", "descriptor": "(ILjava/util/concurrent/ThreadFactory;Ljava/util/concurrent/RejectedExecutionHandler;)V", "dispatch": "SPECIAL" },
+      "redirect": { "name": "forgeScheduledExecutor", "descriptor": "(ILjava/util/concurrent/ThreadFactory;Ljava/util/concurrent/RejectedExecutionHandler;)Ljava/util/concurrent/ScheduledThreadPoolExecutor;" }
+    }
+  ]
+}

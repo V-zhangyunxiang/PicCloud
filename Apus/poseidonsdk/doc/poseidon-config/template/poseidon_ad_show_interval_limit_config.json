@@ -1,0 +1,15 @@
+{
+  "pos_limit_ad_types_when_ad_closed": "1,2",
+  "pos_limit_ad_types_when_ad_can_show": "1",
+  "pos_interval_in_millis": 10000,
+  "pos_interval_in_millis_by_day": "2_9000,3_5000",
+  "pos_strategies": {
+    "pos_default": {
+      "pos_switch": false
+    },
+    "pos_ladybug": {
+      "pos_switch": true,
+      "pos_limit_until_new_user_installed_in_days": 2
+    }
+  }
+}
