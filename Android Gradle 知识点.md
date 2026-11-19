@@ -606,7 +606,7 @@ button.setOnClickListener(new OnClickListener() {
 //真正有业务价值的只有 System.out.println("Hello") 这一行
 
 // Lambda 写法(Java 8+)，Lambda 就是为了干掉冗余的匿名内部类而生的语法糖。
-button.setOnClickListener(v -> System.out.println("Hello"));
+button.setOnClickListener{v -> System.out.println("Hello")};
 ```
 
 ## Java Lambda VS Kotlin Lambda
